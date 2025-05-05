@@ -123,26 +123,7 @@ export function gameLoop(act){
             break;
         case 'start':
             {
-<<<<<<< HEAD
-                let main_timer = 20;
-                let mid_timer = 200;
-                let long_timer = 1500;
-                if (global.race['slow']){
-                    let slow = 1 + (traits.slow.vars()[0] / 100);
-                    main_timer = Math.floor(main_timer * slow);
-                    mid_timer = Math.floor(mid_timer * slow);
-                    long_timer = Math.floor(long_timer * slow);
-                }
-                if (global.race['hyper']){
-                    let fast = 1 - (traits.hyper.vars()[0] / 100);
-                    main_timer = Math.floor(main_timer * fast);
-                    mid_timer = Math.floor(mid_timer * fast);
-                    long_timer = Math.floor(long_timer * fast);
-                }
-                webWorker.mt = main_timer;
-=======
                 addATime(Date.now());
->>>>>>> a9bd5b4851f4edd0d2f4e436fef0f2ff4133911d
 
                 const timers = loopTimers();
 
@@ -1433,13 +1414,8 @@ export const calcPillar = (function(){
                     active++;
                 }
             });
-<<<<<<< HEAD
-            bonus = [
-                1 + (active  * 2 / 100), // Production
-=======
             bonus = [ 
                 1 + (active * 2 / 100), // Production //garfu added more prod
->>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
                 1 + (active * 2 / 100) // Storage
             ];
         }
@@ -1663,18 +1639,12 @@ export function calcPrestige(type,inputs){
     else {
         gains.plasmid = inputs.plas;
     }
-<<<<<<< HEAD
-    gains.plasmid *= 2;
-    gains.phage = gains.plasmid > 0 ? challenge_multiplier(Math.floor(Math.log2(gains.plasmid) * Math.E * phage_mult),type,false,inputs) : 0;
-    gains.phage *= 2;
-=======
     //garfu double gains
     gains.plasmid *= 2;
 
     gains.phage = gains.plasmid > 0 ? challenge_multiplier(Math.floor(Math.log2(gains.plasmid) * Math.E * phage_mult),type,false,inputs) : 0;
     gains.phage *= 2;
 
->>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
     if (type === 'bigbang'){
         let exotic = inputs.exotic;
         let mass = inputs.mass;
@@ -1722,17 +1692,10 @@ export function calcPrestige(type,inputs){
                 default:
                     break;
             }
-<<<<<<< HEAD
-            gains.harmony *= 2;
-=======
-<<<<<<< HEAD
-            gains.harmony *= 2;
-            gains.harmony = parseFloat(harmony.toFixed(2));
 
-=======
->>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
+            gains.harmony *= 2;
             gains.harmony = parseFloat(pr_gain.toFixed(2));
->>>>>>> a9bd5b4851f4edd0d2f4e436fef0f2ff4133911d
+
         }
         else if (type === 'descend'){
             let artifact = universe === 'micro' ? 1 : pr_gain;
@@ -1743,10 +1706,7 @@ export function calcPrestige(type,inputs){
             else {
                 spire = global.portal.hasOwnProperty('spire') ? global.portal.spire.count : 0;
             }
-<<<<<<< HEAD
-=======
             //garfu more artifact milestones
->>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
             [50,100,150,200,250,300,350,400,500,600,700].forEach(function(x){
                 if (spire > x){
                     artifact++;

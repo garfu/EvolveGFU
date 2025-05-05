@@ -1438,10 +1438,6 @@ export const actions = {
             reqs: { housing: 2 },
             not_trait: ['cataclysm','lone_survivor'],
             cost: {
-<<<<<<< HEAD
-=======
-                //garfu less cost and multi for cottage
->>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
                 Money(offset){ return costMultiplier('cottage', offset, 450, 1.15); },
                 Plywood(offset){ return costMultiplier('cottage', offset, 15, 1.20); },
                 Brick(offset){ return costMultiplier('cottage', offset, 5, 1.20); },
@@ -1667,10 +1663,6 @@ export const actions = {
             reqs: { slaves: 1 },
             not_trait: ['cataclysm','lone_survivor'],
             cost: {
-<<<<<<< HEAD
-=======
-                //garfu lowered slave pen scaling
->>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
                 Money(offset){ return costMultiplier('slave_pen', offset, 250, 1.25); },
                 Lumber(offset){ return costMultiplier('slave_pen', offset, 100, 1.25); },
                 Stone(offset){ return costMultiplier('slave_pen', offset, 75, 1.25); },
@@ -3763,10 +3755,6 @@ export const actions = {
             reqs: { science: 2 },
             not_trait: ['cataclysm','lone_survivor'],
             cost: {
-<<<<<<< HEAD
-=======
-                //garfu adjust library multi
->>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
                 Money(offset){ return costMultiplier('library', offset, 45, 1.15); },
                 Crystal(offset){ return global.race.universe === 'magic' ? costMultiplier('library', offset, 2, 1.15) : 0; },
                 Iron(offset){ return global.city.ptrait.includes('unstable') ? costMultiplier('library', offset, 4, 1.15) : 0; },
