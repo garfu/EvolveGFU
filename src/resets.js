@@ -34,6 +34,8 @@ export function warhead(){
             global.prestige.Plasmid.count += gains.plasmid;
             global.stats.plasmid += gains.plasmid;
         }
+        global.stats.pdebt = gains.pdebt;
+
         unlockAchieve(`apocalypse`);
         unlockAchieve(`squished`,true);
         unlockAchieve(`extinct_${god}`);
@@ -47,6 +49,8 @@ export function warhead(){
             unlockAchieve('ashanddust');
         }
         checkAchievements();
+
+        grandDeathTour('md');
 
         let srace = global.race.hasOwnProperty('srace') ? global.race.srace : false;
         let corruption = global.race.hasOwnProperty('corruption') && global.race.corruption > 1 ? global.race.corruption - 1 : 0;
@@ -92,7 +96,7 @@ export function bioseed(){
 
     let god = global.race.species;
     let old_god = global.race.gods;
-    let genus = races[god].type;
+    let genus = races[god].type === 'hybrid' ? global.race.maintype : races[god].type;
     let orbit = global.city.calendar.orbit;
     let biome = global.city.biome;
     let atmo = global.city.ptrait;
@@ -111,6 +115,8 @@ export function bioseed(){
         global.prestige.Plasmid.count += gains.plasmid;
         global.stats.plasmid += gains.plasmid;
     }
+    global.stats.pdebt = gains.pdebt;
+
     unlockAchieve(`seeder`);
     unlockAchieve(`biome_${biome}`);
     atmo.forEach(function(a){
@@ -120,6 +126,9 @@ export function bioseed(){
     });
     unlockAchieve(`genus_${genus}`);
     
+    if (global.race['gravity_well']){
+        unlockAchieve(`escape_velocity`);
+    }
     if (global.race['truepath']){
         unlockAchieve(`exodus`);
     }
@@ -245,6 +254,7 @@ export function cataclysm_end(){
             global.prestige.Plasmid.count += gains.plasmid;
             global.stats.plasmid += gains.plasmid;
         }
+        global.stats.pdebt = gains.pdebt;
 
         unlockAchieve(`squished`,true);
         unlockAchieve(`extinct_${global.race.species}`);
@@ -257,8 +267,11 @@ export function cataclysm_end(){
             unlockAchieve('failed_history');
         }
 
+        grandDeathTour('ct');
+
         let srace = global.race.hasOwnProperty('srace') ? global.race.srace : false;
         let corruption = global.race.hasOwnProperty('corruption') && global.race.corruption > 1 ? global.race.corruption - 1 : 0;
+        let mainType = global.race.hasOwnProperty('maintype') ? global.race.maintype : false;
         global['race'] = {
             species : global.race.species,
             gods: global.race.gods,
@@ -273,7 +286,10 @@ export function cataclysm_end(){
         if (srace){
             global.race['srace'] = srace;
         }
-
+        if (mainType){
+            global.race['maintype'] = mainType;
+        }
+             
         resetCommon({
             orbit: global.city.calendar.orbit, 
             biome: global.city.biome, 
@@ -350,6 +366,8 @@ export function big_bang(){
         unlockFeat('steelem');
     }
 
+    grandDeathTour('bh');
+
     let god = global.race.species;
     let old_god = global.race.gods;
     let orbit = global.city.calendar.orbit;
@@ -372,6 +390,7 @@ export function big_bang(){
         global.prestige.Plasmid.count += gains.plasmid;
         global.stats.plasmid += gains.plasmid;
     }
+    global.stats.pdebt = gains.pdebt;
     global.prestige.Dark.count = +(global.prestige.Dark.count + gains.dark).toFixed(3);
     global.stats.dark = +(global.stats.dark + gains.dark).toFixed(3);
     global.stats.universes++;
@@ -445,6 +464,8 @@ export function vacuumCollapse(){
             unlockFeat('steelem');
         }
 
+        grandDeathTour('vc');
+
         let god = global.race.species;
         let old_god = global.race.gods;
         let orbit = global.city.calendar.orbit;
@@ -468,6 +489,7 @@ export function vacuumCollapse(){
             global.prestige.Plasmid.count += gains.plasmid;
             global.stats.plasmid += gains.plasmid;
         }
+        global.stats.pdebt = gains.pdebt;
         global.prestige.Dark.count = +(global.prestige.Dark.count + gains.dark).toFixed(3);
         global.stats.dark = +(global.stats.dark + gains.dark).toFixed(3);
         global.stats.universes++;
@@ -536,7 +558,7 @@ export function ascend(){
         global.prestige.Plasmid.count += gains.plasmid;
         global.stats.plasmid += gains.plasmid;
     }
-
+    global.stats.pdebt = gains.pdebt;
     global.prestige.Harmony.count = parseFloat((global.prestige.Harmony.count + gains.harmony).toFixed(2));
     global.stats.harmony = parseFloat((global.stats.harmony + gains.harmony).toFixed(2));
 
@@ -593,7 +615,7 @@ export function ascend(){
     }
 
     Object.keys(geo).forEach(function (g){
-        geo[g] += 0.02;
+        geo[g] = +(geo[g] + 0.02).toFixed(2);
     });
 
     resetCommon({
@@ -612,6 +634,9 @@ export function descension(){
     if (webWorker.w){
         webWorker.w.terminate();
     }
+    if (!global['sim']){
+        save.setItem('evolveBak',LZString.compressToUTF16(JSON.stringify(global)));
+    }
     clearSavedMessages();
 
     tagEvent('reset',{
@@ -620,11 +645,23 @@ export function descension(){
 
     unlockAchieve(`squished`,true);
     unlockAchieve(`extinct_${global.race.species}`);
-    if (global.race['witch_hunter'] && global.race.universe === 'magic'){
+    if (global.race['witch_hunter'] && global.tech['forbidden'] >= 5 && global.race.universe === 'magic'){
         unlockAchieve(`nightmare`);
     }
     else {
         unlockAchieve(`corrupted`);
+    }
+    if(global.race['fasting'] && global.tech['dish_reset']){
+        //also award on outerplane summon with finalize dish tech unlocked
+        let affix = universeAffix();
+        global.stats['endless_hunger'].b5[affix] = true;
+        if (affix !== 'm' && affix !== 'l'){
+            global.stats['endless_hunger'].b5.l = true;
+        }
+
+        if (global.stats.starved === 0){
+            unlockFeat('immortal');
+        }
     }
     if (races[global.race.species].type === 'angelic'){
         unlockFeat('twisted');
@@ -641,6 +678,8 @@ export function descension(){
     if (global.race['ooze'] && global.race.species === 'sludge'){
         unlockFeat('slime_lord');
     }
+
+    grandDeathTour('di');
 
     let gains = calcPrestige('descend');
     global.prestige.Artifact.count += gains.artifact;
@@ -705,6 +744,106 @@ export function descension(){
     window.location.reload();
 }
 
+// Apotheosis
+export function apotheosis(){
+    clearSavedMessages();
+
+    tagEvent('reset',{
+        'end': 'apotheosis'
+    });
+
+    let god = global.race.species;
+    let old_god = global.race.gods;
+    let orbit = global.city.calendar.orbit;
+    let biome = global.city.biome;
+    let atmo = global.city.ptrait;
+    let geo = global.city.geology;
+
+    let gains = calcPrestige('apotheosis');
+
+    global.stats.apotheosis++;
+    updateResetStats();
+
+    global.prestige.Supercoiled.count += gains.supercoiled;
+    global.stats.supercoiled += gains.supercoiled;
+    if (global.race.universe === 'antimatter'){
+        global.prestige.AntiPlasmid.count += gains.plasmid;
+        global.stats.antiplasmid += gains.plasmid;
+    }
+    else {
+        global.prestige.Plasmid.count += gains.plasmid;
+        global.stats.plasmid += gains.plasmid;
+    }
+    global.stats.pdebt = gains.pdebt;
+
+    if (global.race['warlord']){
+        global.prestige.Artifact.count += gains.artifact;
+        global.stats.artifact += gains.artifact;
+    }
+
+    atmo.forEach(function(a){
+        if (planetTraits.hasOwnProperty(a)){
+            unlockAchieve(`atmo_${a}`);
+        }
+    });
+
+    if (typeof global.tech['world_control'] === 'undefined'){
+        unlockAchieve(`cult_of_personality`);
+    }
+
+    let good_rocks = 0;
+    Object.keys(global.city.geology).forEach(function (g){
+        if (global.city.geology[g] > 0){
+            good_rocks++;
+        }
+    });
+    if (good_rocks >= 4) {
+        unlockAchieve('miners_dream');
+    }
+
+    if (!global.galaxy.hasOwnProperty('dreadnought') || global.galaxy.dreadnought.count === 0){
+        unlockAchieve(`dreaded`);
+    }
+
+    if (global.race['gross_enabled'] && global.race['ooze'] && global.race.species !== 'custom' && global.race.species !== 'sludge'){
+        unlockAchieve(`gross`);
+    }
+
+    checkAchievements();
+
+    let srace = global.race.hasOwnProperty('srace') ? global.race.srace : false;
+    let corruption = global.race.hasOwnProperty('corruption') && global.race.corruption > 1 ? global.race.corruption - 1 : 0;
+    global['race'] = {
+        species : 'protoplasm',
+        gods: god,
+        old_gods: old_god,
+        universe: global.race.universe,
+        seeded: false,
+        seed: Math.floor(seededRandom(10000)),
+        ascended: true,
+    };
+    if (corruption > 0){
+        global.race['corruption'] = corruption;
+    }
+    if (srace){
+        global.race['srace'] = srace;
+    }
+
+    Object.keys(geo).forEach(function (g){
+        geo[g] = +(geo[g] + 0.02).toFixed(2);
+    });
+
+    resetCommon({
+        orbit: orbit, 
+        biome: biome, 
+        ptrait: atmo, 
+        geology: geo
+    });
+
+    save.setItem('evolved',LZString.compressToUTF16(JSON.stringify(global)));
+    window.location.reload();
+}
+
 // Terraform
 export function terraform(planet){
     clearSavedMessages();
@@ -735,7 +874,7 @@ export function terraform(planet){
         global.prestige.Plasmid.count += gains.plasmid;
         global.stats.plasmid += gains.plasmid;
     }
-
+    global.stats.pdebt = gains.pdebt;
     global.prestige.Harmony.count = parseFloat((global.prestige.Harmony.count + gains.harmony).toFixed(2));
     global.stats.harmony = parseFloat((global.stats.harmony + gains.harmony).toFixed(2));
 
@@ -814,6 +953,8 @@ export function aiApocalypse(){
         unlockFeat('the_misery');
     }
 
+    grandDeathTour('ai');
+
     let god = global.race.species;
     let old_god = global.race.gods;
     let orbit = global.city.calendar.orbit;
@@ -836,12 +977,12 @@ export function aiApocalypse(){
         global.prestige.Plasmid.count += gains.plasmid;
         global.stats.plasmid += gains.plasmid;
     }
-
+    global.stats.pdebt = gains.pdebt;
     global.prestige.AICore.count += gains.cores;
     global.stats.cores += gains.cores;
 
-    let srace = races[god].type !== 'synthetic' ? god : (global.race.hasOwnProperty('srace') ? global.race.srace : god);
-    global.stats.synth[srace] = true;
+    let srace = races[god].type !== 'synthetic' && !['junker','sludge','ultra_sludge'].includes(god) ? god : (global.race.hasOwnProperty('srace') ? global.race.srace : god);
+    global.stats.synth[god] = true;
 
     let corruption = global.race.hasOwnProperty('corruption') && global.race.corruption > 1 ? global.race.corruption - 1 : 0;
     global['race'] = {
@@ -885,7 +1026,7 @@ export function matrix(){
 
     let god = global.race.species;
     let old_god = global.race.gods;
-    let genus = races[god].type;
+    let genus = races[god].type === 'hybrid' ? global.race.maintype : races[god].type;
     let orbit = global.city.calendar.orbit;
     let biome = global.city.biome;
     let atmo = global.city.ptrait;
@@ -918,6 +1059,7 @@ export function matrix(){
         global.prestige.Plasmid.count += gains.plasmid;
         global.stats.plasmid += gains.plasmid;
     }
+    global.stats.pdebt = gains.pdebt;
     global.prestige.Phage.count += gains.phage;
     global.stats.phage += gains.phage;
 
@@ -964,18 +1106,18 @@ export function retirement(){
     clearSavedMessages();
 
     tagEvent('reset',{
-        'end': 'retire'
+        'end': 'retired'
     });
 
     let god = global.race.species;
     let old_god = global.race.gods;
-    let genus = races[god].type;
+    let genus = races[god].type === 'hybrid' ? global.race.maintype : races[god].type;
     let orbit = global.city.calendar.orbit;
     let biome = global.city.biome;
     let atmo = global.city.ptrait;
     let geo = global.city.geology;
 
-    let gains = calcPrestige('retire');
+    let gains = calcPrestige('retired');
 
     unlockAchieve(`biome_${biome}`);
     atmo.forEach(function(a){
@@ -1002,6 +1144,7 @@ export function retirement(){
         global.prestige.Plasmid.count += gains.plasmid;
         global.stats.plasmid += gains.plasmid;
     }
+    global.stats.pdebt = gains.pdebt;
     global.prestige.Phage.count += gains.phage;
     global.stats.phage += gains.phage;
 
@@ -1053,7 +1196,7 @@ export function gardenOfEden(){
 
     let god = global.race.species;
     let old_god = global.race.gods;
-    let genus = races[god].type;
+    let genus = races[god].type === 'hybrid' ? global.race.maintype : races[god].type;
     let orbit = global.city.calendar.orbit;
     let biome = global.city.biome;
     let atmo = global.city.ptrait;
@@ -1086,6 +1229,7 @@ export function gardenOfEden(){
         global.prestige.Plasmid.count += gains.plasmid;
         global.stats.plasmid += gains.plasmid;
     }
+    global.stats.pdebt = gains.pdebt;
     global.prestige.Phage.count += gains.phage;
     global.stats.phage += gains.phage;
 
@@ -1190,3 +1334,30 @@ function trackWomling(){
     }
 }
 
+function grandDeathTour(type){
+    if (global.race.species === 'ultra_sludge'){
+        let rank = alevel();
+        let uni = universeAffix();
+
+        if (global.stats.death_tour[type][uni] < rank){
+            global.stats.death_tour[type][uni] = rank;
+        }
+
+        let gdt_rank = 5;
+        Object.keys(global.stats.death_tour).forEach(function(k){
+            let universe = 0;
+            Object.keys(global.stats.death_tour[k]).forEach(function(u){
+                if (u !== 'm' && global.stats.death_tour[k][u] > universe){
+                    universe = global.stats.death_tour[k][u];
+                }
+            });
+            if (gdt_rank > universe){
+                gdt_rank = universe;
+            }
+        });
+
+        if (gdt_rank > 0){
+            unlockFeat('grand_death_tour',false,gdt_rank);
+        }
+    }
+}

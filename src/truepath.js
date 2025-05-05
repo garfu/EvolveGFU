@@ -1,14 +1,14 @@
-import { global, p_on, support_on, sizeApproximation, quantum_level } from './vars.js';
-import { vBind, clearElement, popover, clearPopper, messageQueue, powerCostMod, powerModifier, spaceCostMultiplier, deepClone, calcPrestige, flib, darkEffect, adjustCosts } from './functions.js';
-import { races, traits } from './races.js';
-import { spatialReasoning } from './resources.js';
-import { armyRating, garrisonSize } from './civics.js';
-import { jobScale, job_desc, loadFoundry } from './jobs.js';
+import { global, p_on, support_on, sizeApproximation, keyMap } from './vars.js';
+import { vBind, clearElement, popover, clearPopper, messageQueue, powerCostMod, powerModifier, spaceCostMultiplier, deepClone, calcPrestige, flib, darkEffect, adjustCosts, get_qlevel, timeCheck, timeFormat, buildQueue } from './functions.js';
+import { races, traits, orbitLength } from './races.js';
+import { spatialReasoning, unlockContainers } from './resources.js';
+import { armyRating, garrisonSize, soldierDeath } from './civics.js';
+import { jobScale, job_desc, loadFoundry, limitCraftsmen } from './jobs.js';
 import { production, highPopAdjust } from './prod.js';
-import { actions, payCosts, powerOnNewStruct, setAction, drawTech, bank_vault, buildTemplate, casinoEffect, housingLabel } from './actions.js';
-import { fuel_adjust, int_fuel_adjust, spaceTech, renderSpace, checkRequirements, planetName } from './space.js';
+import { actions, payCosts, powerOnNewStruct, setAction, drawTech, bank_vault, buildTemplate, casinoEffect, housingLabel, structName, initStruct } from './actions.js';
+import { fuel_adjust, int_fuel_adjust, spaceTech, renderSpace, checkRequirements, incrementStruct, planetName } from './space.js';
 import { removeTask, govActive } from './governor.js';
-import { defineIndustry, nf_resources } from './industry.js';
+import { defineIndustry, nf_resources, addSmelter } from './industry.js';
 import { arpa } from './arpa.js';
 import { matrix, retirement, gardenOfEden } from './resets.js';
 import { loc } from './locale.js';
@@ -45,7 +45,7 @@ const outerTruth = {
             path: ['truepath'],
             queue_complete(){ return global.tech.titan >= 1 ? 0 : 1; },
             cost: {
-                Helium_3(offset,wiki){ return +fuel_adjust(250000,false,wiki).toFixed(0); },
+                Helium_3(o,wiki){ return +fuel_adjust(250000,false,wiki).toFixed(0); },
                 Elerium(){ return 100; }
             },
             effect(){
@@ -81,11 +81,17 @@ const outerTruth = {
             powered(){ return powerCostMod(10); },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.titan_spaceport.count++;
+                    incrementStruct('titan_spaceport');
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, support: 0, s_max: 0 },
+                    p: ['titan_spaceport','space']
+                };
             },
             post(){
                 if (global.tech['titan'] === 1){
@@ -106,22 +112,28 @@ const outerTruth = {
                 Steel(offset){ return spaceCostMultiplier('electrolysis', offset, 220000, 1.25); },
                 Polymer(offset){ return spaceCostMultiplier('electrolysis', offset, 380000, 1.25); }
             },
-            effect(){
-                let support = `<div>+${loc(`galaxy_alien2_support`,[$(this)[0].support(),planetName().titan])}</div>`;
+            effect(wiki){
+                let support = `<div>+${loc(`galaxy_alien2_support`,[$(this)[0].support(wiki),planetName().titan])}</div>`;
                 return `${support}<div class="has-text-caution">${loc('space_electrolysis_use',[$(this)[0].support_fuel().a,global.resource.Water.name,$(this)[0].powered()])}</div>`;
             },
-            support(){
-                return global.tech['titan_ai_core'] && global.tech.titan_ai_core >= 2 && p_on['ai_core2'] ? 3 : 2;
+            support(wiki){
+                return global.tech['titan_ai_core'] && global.tech.titan_ai_core >= 2 && (wiki ? global.space.ai_core2.on : p_on['ai_core2']) ? 3 : 2;
             },
             support_fuel(){ return { r: 'Water', a: 35 }; },
             powered(){ return powerCostMod(8); },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.electrolysis.count++;
+                    incrementStruct('electrolysis');
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, support: 0, s_max: 0 },
+                    p: ['electrolysis','space']
+                };
             },
             post(){
                 if (global.tech['titan'] === 3){
@@ -151,13 +163,19 @@ const outerTruth = {
             powered(){ return powerModifier(-22); },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.hydrogen_plant.count++;
+                    incrementStruct('hydrogen_plant');
                     if (global.space.electrolysis.on > global.space.hydrogen_plant.on){
                         global.space.hydrogen_plant.on++;
                     }
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['hydrogen_plant','space']
+                };
             }
         },
         titan_quarters: {
@@ -178,25 +196,36 @@ const outerTruth = {
                 let gain = jobScale(1);
                 return `<div class="has-text-caution">${loc('space_used_support',[planetName().titan])}</div><div>${loc('plus_max_resource',[jobScale(1),global.race['truepath'] ? loc('job_colonist_tp',[planetName().titan]) : loc('colonist')])}</div><div>${loc('plus_max_resource',[gain,loc('citizen')])}</div><div class="has-text-caution">${loc(`spend`,[$(this)[0].support_fuel()[0].a,global.resource[$(this)[0].support_fuel()[0].r].name])}</div><div class="has-text-caution">${loc(`spend`,[$(this)[0].support_fuel()[1].a,global.resource[$(this)[0].support_fuel()[1].r].name])}</div>`;
             },
+            s_type: 'titan',
             support(){ return -1; },
             support_fuel(){ return [{ r: 'Water', a: 12 },{ r: 'Food', a: 500 }]; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.titan_quarters.count++;
+                    incrementStruct('titan_quarters');
                     global.civic.titan_colonist.display = true;
-                    if (global.space.electrolysis.support < global.space.electrolysis.s_max){
-                        global.space.titan_quarters.on++;
+                    if (powerOnNewStruct($(this)[0])){
                         global.resource[global.race.species].max += jobScale(1);
-                        if (global.civic[global.civic.d_job].workers > 0){
-                            let hired = global.civic[global.civic.d_job].workers - jobScale(1) < 0 ? global.civic[global.civic.d_job].workers : jobScale(1);
-                            global.civic[global.civic.d_job].workers -= hired;
-                            global.civic.titan_colonist.workers += hired;
-                        }
+
+                        let hiredMax = jobScale(1);
+                        global.civic.titan_colonist.max += hiredMax;
+
+                        let hired = Math.min(hiredMax, global.civic[global.civic.d_job].workers);
+                        global.civic[global.civic.d_job].workers -= hired;
+                        global.civic.titan_colonist.workers += hired;
+                    }
+                    if (global.space.titan_quarters.count === 1){
+                        renderSpace();
                     }
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['titan_quarters','space']
+                };
             },
             citizens(){
                 let gain = 1;
@@ -208,7 +237,7 @@ const outerTruth = {
         },
         titan_mine: {
             id: 'space-titan_mine',
-            title: loc('space_red_mine_title'),
+            title(){ return structName('mine'); },
             desc(){
                 return `<div>${loc('space_red_mine_desc')}</div><div class="has-text-special">${loc('space_support',[planetName().titan])}</div>`;
             },
@@ -227,19 +256,27 @@ const outerTruth = {
                 let aluminium = +(alum_val).toFixed(3);
                 return `<div class="has-text-caution">${loc('space_used_support',[planetName().titan])}</div><div>${loc('space_red_mine_effect',[adamantite,global.resource.Adamantite.name])}</div><div>${loc('space_red_mine_effect',[aluminium,global.resource.Aluminium.name])}</div>`;
             },
+            s_type: 'titan',
             support(){ return -1; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             special(){ return true; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.titan_mine.count++;
-                    global.resource.Adamantite.display = true;
-                    if (global.space.electrolysis.support < global.space.electrolysis.s_max){
-                        global.space.titan_mine.on++;
+                    incrementStruct('titan_mine');
+                    powerOnNewStruct($(this)[0]);
+                    if (global.space.titan_mine.count === 1){
+                        global.resource.Adamantite.display = true;
+                        defineIndustry();
                     }
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, ratio: 90 },
+                    p: ['titan_mine','space']
+                };
             }
         },
         storehouse: {
@@ -304,10 +341,10 @@ const outerTruth = {
                         return 0;
                 }
             },
-            effect(){
+            effect(wiki){
                 let storage = '<div class="aTable">';
-                let multiplier = tpStorageMultiplier('storehouse',false);
-                let h_multiplier = tpStorageMultiplier('storehouse',true);
+                let multiplier = tpStorageMultiplier('storehouse',false,wiki);
+                let h_multiplier = tpStorageMultiplier('storehouse',true,wiki);
                 for (const res of $(this)[0].res()){
                     if (global.resource[res].display){
                         let heavy = $(this)[0].heavy(res);
@@ -320,7 +357,7 @@ const outerTruth = {
             },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.storehouse.count++;
+                    incrementStruct('storehouse');
                     let multiplier = tpStorageMultiplier('storehouse',false);
                     let h_multiplier = tpStorageMultiplier('storehouse',true);
                     for (const res of $(this)[0].res()){
@@ -332,6 +369,12 @@ const outerTruth = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['storehouse','space']
+                };
             }
         },
         titan_bank: {
@@ -351,15 +394,21 @@ const outerTruth = {
                 let vault = bank_vault() * 2;
                 vault = spatialReasoning(vault);
                 vault = (+(vault).toFixed(0)).toLocaleString();
-                return loc('plus_max_resource',[`\$${vault}`,loc('resource_Money_name')]);
+                return loc('plus_max_resource',[`\$${vault}`,global.resource.Money.name]);
             },
             action(){
                 if (payCosts($(this)[0])){
                     global['resource']['Money'].max += spatialReasoning(1800);
-                    global.space.titan_bank.count++;
+                    incrementStruct('titan_bank');
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['titan_bank','space']
+                };
             }
         },
         g_factory: {
@@ -381,15 +430,15 @@ const outerTruth = {
                 }
                 return `<div class="has-text-caution">${loc('space_used_support',[planetName().titan])}</div><div>${loc('space_red_mine_effect',[graphene,global.resource.Graphene.name])}</div><div>${loc('interstellar_g_factory_effect')}</div>`;
             },
+            s_type: 'titan',
             support(){ return -1; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             special: true,
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.g_factory.count++;
+                    incrementStruct('g_factory');
                     global.resource.Graphene.display = true;
-                    if (global.space.electrolysis.support < global.space.electrolysis.s_max){
-                        global.space.g_factory.on++;
+                    if (powerOnNewStruct($(this)[0])){
                         if (global.race['kindling_kindred'] || global.race['smoldering']){
                             global.space.g_factory.Oil++;
                         }
@@ -402,6 +451,12 @@ const outerTruth = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, Lumber: 0, Coal: 0, Oil: 0 },
+                    p: ['g_factory','space']
+                };
             }
         },
         sam: {
@@ -425,11 +480,17 @@ const outerTruth = {
             powered(){ return powerCostMod(5); },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.sam.count++;
+                    incrementStruct('sam');
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['sam','space']
+                };
             },
             post(){
                 vBind({el: `#spc_titansynd`},'update');
@@ -449,31 +510,36 @@ const outerTruth = {
                 Orichalcum(offset){ return spaceCostMultiplier('decoder', offset, 330000, 1.275); },
                 Quantium(offset){ return spaceCostMultiplier('decoder', offset, 180000, 1.275); },
             },
-            effect(){
+            effect(wiki){
                 let cipher = $(this)[0].support_fuel().a;
                 let know = 2500;
                 if (global.race['high_pop']){
                     know = highPopAdjust(know);
                 }
-                if (p_on['ai_core2']){
+                if (wiki ? (global.space?.ai_core2?.on ?? 0) : p_on['ai_core2']){
                     know *= 1.25;
                 }
                 let desc = `<div class="has-text-caution">${loc('space_used_support',[planetName().titan])}</div>`;
                 desc += `<div>${loc('space_red_exotic_lab_effect1',[know])}</div>`;
                 return desc + `<div class="has-text-caution">${loc('spend',[cipher,global.resource[$(this)[0].support_fuel().r].name])}</div>`;
             },
+            s_type: 'titan',
             support(){ return -1; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             support_fuel(){ return { r: 'Cipher', a: 0.06 }; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.decoder.count++;
-                    if (global.space.electrolysis.support < global.space.electrolysis.s_max){
-                        global.space.decoder.on++;
-                    }
+                    incrementStruct('decoder');
+                    powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['decoder','space']
+                };
             }
         },
         ai_core: {
@@ -481,7 +547,7 @@ const outerTruth = {
             title: loc('space_ai_core'),
             desc(wiki){
                 if (!global.space.hasOwnProperty('ai_core') || global.space.ai_core.count < 100 || wiki){
-                    return `<div>${loc('space_ai_core')}</div><div class="has-text-special">${loc('requires_segmemts',[100])}</div>` + (global.space.hasOwnProperty('ai_core') && global.space.ai_core.count >= 100 ? `<div class="has-text-special">${loc('requires_power')}</div>` : ``);
+                    return `<div>${loc('space_ai_core')}</div><div class="has-text-special">${loc('requires_segments',[100])}</div>` + (global.space.hasOwnProperty('ai_core') && global.space.ai_core.count >= 100 ? `<div class="has-text-special">${loc('requires_power')}</div>` : ``);
                 }
                 else {
                     return `<div>${loc('space_ai_core')}</div>`;
@@ -506,33 +572,41 @@ const outerTruth = {
             },
             effect(wiki){
                 let effectText = `<div>${loc('space_ai_core_effect')}</div>`;
-                let count = ((wiki || 0) + (global.space.hasOwnProperty('ai_core') ? global.space.ai_core.count : 0));
+                let count = ((wiki?.count ?? 0) + (global.space.hasOwnProperty('ai_core') ? global.space.ai_core.count : 0));
                 if (count < 100){
                     let remain = 100 - count;
                     effectText += `<div class="has-text-special">${loc('space_dwarf_collider_effect2',[remain])}</div>`;
                 }
                 else {
-                    return outerTruth.spc_titan.ai_core2.effect();
+                    return outerTruth.spc_titan.ai_core2.effect(wiki);
                 }
                 return effectText;
             },
             action(){
                 if (payCosts($(this)[0])){
                     if (global.space.ai_core.count < 100){
-                        global.space.ai_core.count++;
+                        incrementStruct('ai_core');
                         if (global.space.ai_core.count >= 100){
                             global.tech['titan_ai_core'] = 1;
-                            global.space['ai_core2'] = { count: 1, on: 0 };
-                            if (global.city.power >= outerTruth.spc_titan.ai_core2.powered()){
-                                global.space.ai_core2.on++;
-                            }
+                            initStruct(outerTruth.spc_titan.ai_core2);
+                            incrementStruct('ai_core2','space');
+                            powerOnNewStruct(outerTruth.spc_titan.ai_core2);
                             renderSpace();
                             drawTech();
+                            if (global.city.ptrait.includes('kamikaze') && !global.race['tidal_decay']){
+                                messageQueue(loc('planet_kamikaze_stabilize',[races[global.race.species].home,100]),'info',false,['progress']);
+                            }
                         }
                         return true;
                     }
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['ai_core','space']
+                };
             }
         },
         ai_core2: {
@@ -553,16 +627,16 @@ const outerTruth = {
                 return powerCostMod(100);
             },
             p_fuel(){ return { r: 'Water', a: 1000 }; },
-            effect(){
+            effect(wiki){
                 let value = 25;
-                let desc = `<div class="has-text-warning">${loc('interstellar_citadel_stat',[+(quantum_level).toFixed(1)])}</div>`;
+                let desc = `<div class="has-text-warning">${loc('interstellar_citadel_stat',[+(get_qlevel(wiki)).toFixed(1)])}</div>`;
                 desc += `<div>${loc('interstellar_citadel_effect',[value])}</div><div>${loc('space_ai_core_effect2',[value])}</div>`;
                 if (global.tech['titan_ai_core'] && global.tech.titan_ai_core >= 2){
                     desc += `<div>${loc('space_ai_core_effect3',[50])}</div>`;
                 }
                 desc += `<div class="has-text-caution">${loc('space_electrolysis_use',[$(this)[0].p_fuel().a,global.resource[$(this)[0].p_fuel().r].name,$(this)[0].powered()])}</div>`;
                 if (global.tech['titan_ai_core'] && global.tech.titan_ai_core >= 3){
-                    let drift = +calcAIDrift().toFixed(1);
+                    let drift = +calcAIDrift(wiki).toFixed(1);
                     desc += `<div class="has-text-advanced">${loc('space_ai_core_effect4',[drift])}</div>`;
                 }
                 return desc;
@@ -572,6 +646,12 @@ const outerTruth = {
             },
             flair(){
                 return global.space.hasOwnProperty('ai_core2') && global.space.ai_core2.on >= 1 ? loc(`space_ai_core_flair`) : loc(`space_ai_core_flair2`);
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['ai_core2','space']
+                };
             }
         },
         ai_colonist: {
@@ -596,13 +676,40 @@ const outerTruth = {
             powered(){ return powerCostMod(10); },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.ai_colonist.count++;
+                    incrementStruct('ai_colonist');
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
             },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['ai_colonist','space']
+                };
+            },
             flair: loc(`tech_combat_droids_flair`)
+        },
+        wonder_gardens: {
+            id: 'space-wonder_gardens',
+            title(){
+                return loc('space_wonder_gardens',[planetName().titan]);
+            },
+            desc(){
+                return loc('space_wonder_gardens',[planetName().titan]);
+            },
+            reqs: {},
+            condition(){
+                return global.race['wish'] && global.race['wishStats'] && global.portal['wonder_gardens'] ? true : false;
+            },
+            trait: ['wish'],
+            queue_complete(){ return false; },
+            effect(){
+                return loc(`city_wonder_effect`,[5]);
+            },
+            action(){
+                return false;
+            }
         },
     },
     spc_enceladus: {
@@ -670,17 +777,22 @@ const outerTruth = {
                 let water = +(production('water_freighter')).toFixed(2);
                 return `<div class="has-text-caution">${loc('space_used_support',[planetName().enceladus])}</div><div>${loc('produce',[water,global.resource.Water.name])}</div><div class="has-text-caution">${loc(`space_belt_station_effect3`,[helium])}</div>`;
             },
+            s_type: 'enceladus',
             support(){ return -1; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.water_freighter.count++;
-                    if (global.space.titan_spaceport.support < global.space.titan_spaceport.s_max){
-                        global.space.water_freighter.on++;
-                    }
+                    incrementStruct('water_freighter');
+                    powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['water_freighter','space']
+                };
             }
         },
         zero_g_lab: {
@@ -710,17 +822,28 @@ const outerTruth = {
                 }
                 return desc + `<div class="has-text-caution">${loc('minus_power',[$(this)[0].powered()])}</div>`;
             },
+            s_type: 'enceladus',
             support(){ return -1; },
             powered(){ return powerCostMod(12); },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.zero_g_lab.count++;
-                    if (global.space.titan_spaceport.support < global.space.titan_spaceport.s_max){
-                        global.space.zero_g_lab.on++;
+                    incrementStruct('zero_g_lab');
+                    powerOnNewStruct($(this)[0]);
+                    if (global.space.zero_g_lab.count === 1 && global.tech['quantium']){
+                        loadFoundry();
                     }
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['zero_g_lab','space']
+                };
+            },
+            postPower(on){
+                limitCraftsmen('Quantium');
             }
         },
         operating_base: {
@@ -742,24 +865,33 @@ const outerTruth = {
             effect(){
                 let desc = `<div class="has-text-caution">${loc('space_used_support',[planetName().enceladus])}</div>`;
                 desc += `<div>${loc('galaxy_defense_platform_effect',[50])}</div>`;
-                desc += loc('plus_max_resource',[jobScale(4),loc('civics_garrison_soldiers')]);
+                desc += loc('plus_max_resource',[$(this)[0].soldiers(),loc('civics_garrison_soldiers')]);
                 if (global.race['orbit_decayed']){
                     let healing = global.tech['medic'] * 5;
                     desc += `<div>${loc('city_hospital_effect',[healing])}</div>`;
                 }
                 return desc + `<div class="has-text-caution">${loc('minus_power',[$(this)[0].powered()])}</div>`;
             },
+            s_type: 'enceladus',
             support(){ return -1; },
             powered(){ return powerCostMod(10); },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.operating_base.count++;
-                    if (global.space.titan_spaceport.support < global.space.titan_spaceport.s_max){
-                        global.space.operating_base.on++;
-                    }
+                    incrementStruct('operating_base');
+                    powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['operating_base','space']
+                };
+            },
+            soldiers(){
+                let soldiers = global.race['grenadier'] ? 3 : 4;
+                return jobScale(soldiers);
             },
             post(){
                 vBind({el: `#spc_enceladussynd`},'update');
@@ -784,13 +916,22 @@ const outerTruth = {
             },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.munitions_depot.count++;
+                    incrementStruct('munitions_depot');
                     global.resource.Crates.max += 25;
                     global.resource.Containers.max += 25;
+                    if (!global.resource.Containers.display){
+                        unlockContainers();
+                    }
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['munitions_depot','space']
+                };
+            },
         }
     },
     spc_triton: {
@@ -875,7 +1016,7 @@ const outerTruth = {
                 let troops = garrisonSize();
                 let max_troops = garrisonSize(true);
                 let desc = `<div>${loc('galaxy_defense_platform_effect',[500])}</div>`;
-                desc += loc('plus_max_resource',[jobScale(10),loc('civics_garrison_soldiers')]);
+                desc += loc('plus_max_resource',[$(this)[0].soldiers(),loc('civics_garrison_soldiers')]);
                 desc += `<div class="has-text-warning"><span class="soldier">${loc('civics_garrison_soldiers')}:</span> <span>${troops}</span> / <span>${max_troops}<span></div>`;
                 desc += `<div class="has-text-warning"><span class="wounded">${loc('civics_garrison_wounded')}:</span> <span>${global.civic['garrison'] ? global.civic.garrison.wounded : 0}</span></div>`;
                 desc += `<div class="has-text-warning">${loc('space_fob_landed',[global.space['fob'] ? global.space.fob.troops : 0])}</div>`;
@@ -885,11 +1026,21 @@ const outerTruth = {
             powered(){ return powerCostMod(50); },
             action(){
                 if (global.space.fob.count < 1 && payCosts($(this)[0])){
-                    global.space.fob.count++;
+                    incrementStruct('fob');
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, troops: 0, enemy: 0 },
+                    p: ['fob','space']
+                };
+            },
+            soldiers(){
+                let soldiers = global.race['grenadier'] ? 6 : 10;
+                return jobScale(soldiers);
             },
             post(){
                 if (global.tech['triton'] === 2){
@@ -914,7 +1065,7 @@ const outerTruth = {
                 Neutronium(offset){ return spaceCostMultiplier('lander', offset, 10000, 1.15); },
                 Nano_Tube(offset){ return spaceCostMultiplier('lander', offset, 158000, 1.15); },
             },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             effect(wiki){
                 let oil = +fuel_adjust(50,true,wiki).toFixed(2);
                 let data = ``;
@@ -925,11 +1076,17 @@ const outerTruth = {
             },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.lander.count++;
+                    incrementStruct('lander');
                     global.space.lander.on++;
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['lander','space']
+                };
             }
         },
         crashed_ship: {
@@ -948,6 +1105,12 @@ const outerTruth = {
             },
             action(){
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['crashed_ship','space']
+                };
             }
         },
     },
@@ -984,9 +1147,9 @@ const outerTruth = {
             },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space['orichalcum_mine'] = { count: 0, on: 0 };
-                    global.space['uranium_mine'] = { count: 0, on: 0 };
-                    global.space['neutronium_mine'] = { count: 0, on: 0 };
+                    initStruct(outerTruth.spc_kuiper.orichalcum_mine);
+                    initStruct(outerTruth.spc_kuiper.uranium_mine);
+                    initStruct(outerTruth.spc_kuiper.neutronium_mine);
                     global.space.syndicate['spc_kuiper'] = 500;
                     messageQueue(loc('space_kuiper_mission_action'),'info',false,['progress']);
                     return true;
@@ -1012,19 +1175,25 @@ const outerTruth = {
             effect(wiki){
                 let mineral = +(production('orichalcum_mine')).toFixed(3);
                 let fuel = +fuel_adjust($(this)[0].p_fuel().a,true,wiki).toFixed(1);
-                let desc = `<div>${loc('gain',[mineral,loc('resource_Orichalcum_name')])}</div>`;
+                let desc = `<div>${loc('gain',[mineral,global.resource.Orichalcum.name])}</div>`;
                 return desc + `<div class="has-text-caution">${loc('requires_power_combo_effect',[$(this)[0].powered(),fuel,global.resource[$(this)[0].p_fuel().r].name])}</div>`;
             },
             powered(){ return powerCostMod(10); },
             p_fuel(){ return { r: 'Oil', a: 200 }; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.orichalcum_mine.count++;
+                    incrementStruct('orichalcum_mine');
                     global.resource.Orichalcum.display = true;
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['orichalcum_mine','space']
+                };
             }
         },
         uranium_mine: {
@@ -1043,18 +1212,24 @@ const outerTruth = {
             effect(wiki){
                 let mineral = +(production('uranium_mine')).toFixed(3);
                 let fuel = +fuel_adjust($(this)[0].p_fuel().a,true,wiki).toFixed(1);
-                let desc = `<div>${loc('gain',[mineral,loc('resource_Uranium_name')])}</div>`;
+                let desc = `<div>${loc('gain',[mineral,global.resource.Uranium.name])}</div>`;
                 return desc + `<div class="has-text-caution">${loc('requires_power_combo_effect',[$(this)[0].powered(),fuel,global.resource[$(this)[0].p_fuel().r].name])}</div>`;
             },
             powered(){ return powerCostMod(5); },
             p_fuel(){ return { r: 'Oil', a: 60 }; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.uranium_mine.count++;
+                    incrementStruct('uranium_mine');
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['uranium_mine','space']
+                };
             }
         },
         neutronium_mine: {
@@ -1073,18 +1248,24 @@ const outerTruth = {
             effect(wiki){
                 let mineral = +(production('neutronium_mine')).toFixed(3);
                 let fuel = +fuel_adjust($(this)[0].p_fuel().a,true,wiki).toFixed(1);
-                let desc = `<div>${loc('gain',[mineral,loc('resource_Neutronium_name')])}</div>`;
+                let desc = `<div>${loc('gain',[mineral,global.resource.Neutronium.name])}</div>`;
                 return desc + `<div class="has-text-caution">${loc('requires_power_combo_effect',[$(this)[0].powered(),fuel,global.resource[$(this)[0].p_fuel().r].name])}</div>`;
             },
             powered(){ return powerCostMod(8); },
             p_fuel(){ return { r: 'Oil', a: 60 }; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.neutronium_mine.count++;
+                    incrementStruct('neutronium_mine');
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['neutronium_mine','space']
+                };
             }
         },
         elerium_mine: {
@@ -1104,18 +1285,24 @@ const outerTruth = {
             effect(wiki){
                 let mineral = +(production('elerium_mine')).toFixed(3);
                 let fuel = +fuel_adjust($(this)[0].p_fuel().a,true,wiki).toFixed(1);
-                let desc = `<div>${loc('gain',[mineral,loc('resource_Elerium_name')])}</div>`;
+                let desc = `<div>${loc('gain',[mineral,global.resource.Elerium.name])}</div>`;
                 return desc + `<div class="has-text-caution">${loc('requires_power_combo_effect',[$(this)[0].powered(),fuel,global.resource[$(this)[0].p_fuel().r].name])}</div>`;
             },
             powered(){ return powerCostMod(12); },
             p_fuel(){ return { r: 'Oil', a: 125 }; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.elerium_mine.count++;
+                    incrementStruct('elerium_mine');
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['elerium_mine','space']
+                };
             }
         },
     },
@@ -1193,11 +1380,17 @@ const outerTruth = {
             p_fuel(){ return { r: 'Uranium', a: 5 }; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.drone_control.count++;
+                    incrementStruct('drone_control');
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, support: 0, s_max: 0 },
+                    p: ['drone_control','space']
+                };
             }
         },
         shock_trooper: {
@@ -1223,17 +1416,22 @@ const outerTruth = {
                 }
                 return desc + `<div>${loc(`space_digsite_offense`,[rating])}</div>`;
             },
+            s_type: 'eris',
             support(){ return -1; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.shock_trooper.count++;
-                    if (global.space.drone_control.support < global.space.drone_control.s_max){
-                        global.space.shock_trooper.on++;
-                    }
+                    incrementStruct('shock_trooper');
+                    powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['shock_trooper','space']
+                };
             }
         },
         tank: {
@@ -1259,17 +1457,22 @@ const outerTruth = {
                 }
                 return desc + `<div>${loc(`space_digsite_offense`,[rating])}</div>`;
             },
+            s_type: 'eris',
             support(){ return -1; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space.tank.count++;
-                    if (global.space.drone_control.support < global.space.drone_control.s_max){
-                        global.space.tank.on++;
-                    }
+                    incrementStruct('tank');
+                    powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['tank','space']
+                };
             }
         },
         digsite: {
@@ -1288,6 +1491,12 @@ const outerTruth = {
             },
             action(){
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, enemy: 10000 },
+                    p: ['digsite','space']
+                };
             }
         },
     }
@@ -1308,7 +1517,7 @@ const tauCetiModules = {
             title: loc('tau_star_ringworld'),
             desc(wiki){
                 if (!global.tauceti.hasOwnProperty('ringworld') || global.tauceti.ringworld.count < 1000 || wiki){
-                    return `<div>${loc('tau_star_ringworld')}</div><div class="has-text-special">${loc('requires_segmemts',[1000])}</div>`;
+                    return `<div>${loc('tau_star_ringworld')}</div><div class="has-text-special">${loc('requires_segments',[1000])}</div>`;
                 }
                 else {
                     return `<div>${loc('tau_star_ringworld')}</div>`;
@@ -1330,7 +1539,7 @@ const tauCetiModules = {
             },
             effect(wiki){
                 let effectText = '';
-                let count = (wiki || 0) + (global.tauceti.hasOwnProperty('ringworld') ? global.tauceti.ringworld.count : 0);
+                let count = (wiki?.count ?? 0) + (global.tauceti.hasOwnProperty('ringworld') ? global.tauceti.ringworld.count : 0);
                 if (count < 1000){
                     let remain = 1000 - count;
                     effectText += `<div>${loc('tau_star_ringworld_effect')}</div>`;
@@ -1344,7 +1553,7 @@ const tauCetiModules = {
             action(){
                 if (payCosts($(this)[0])){
                     if (global.tauceti.ringworld.count < 1000){
-                        global.tauceti.ringworld.count++;
+                        incrementStruct('ringworld','tauceti');
                         if (global.tauceti.ringworld.count >= 1000){
                             if (global.race['lone_survivor']){
                                 global.tech['eden'] = 1;
@@ -1353,6 +1562,7 @@ const tauCetiModules = {
                                 global.tech.matrix = 3;
                                 global.tauceti['matrix'] = { count: 1, on: 0 };
                             }
+                            drawTech();
                             renderTauCeti();
                             clearPopper();
                         }
@@ -1360,6 +1570,12 @@ const tauCetiModules = {
                     }
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['ringworld','tauceti']
+                };
             }
         },
         matrix: {
@@ -1472,6 +1688,12 @@ const tauCetiModules = {
                     return false;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['goe_facility','tauceti']
+                };
             }
         },
     },
@@ -1486,7 +1708,7 @@ const tauCetiModules = {
             support: 'orbital_station',
             extra(region){
                 if (global.tech['tau_home'] && global.tech.tau_home >= 2 && !tauEnabled()){
-                    $(`#${region}`).append(`<div id="${region}Mats" v-show="tauShow()" class="syndThreat has-text-warning">${loc('resource_Materials_name')} <span class="has-text-info">{{ amount | round }}</span> / <span class="has-text-info">{{ max }}</span></div>`);
+                    $(`#${region}`).append(`<div id="${region}Mats" v-show="tauShow()" class="syndThreat has-text-warning">${loc('resource_Materials_name')} <span class="has-text-info">{{ amount | round | locale }}</span> / <span class="has-text-info">{{ max | locale }}</span></div>`);
                     vBind({
                         el: `#${region}Mats`,
                         data: global.resource.Materials,
@@ -1498,6 +1720,9 @@ const tauCetiModules = {
                         filters: {
                             round(v){
                                 return +v.toFixed(0);
+                            },
+                            locale(v){
+                                return v.toLocaleString();
                             }
                         }
                     });
@@ -1518,8 +1743,8 @@ const tauCetiModules = {
             effect(){ return loc('tau_new_mission_effect',[races[global.race.species].home]); },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti['colony'] = { count: 0, on: 0 };
-                    global.tauceti['mining_pit'] = { count: 0, on: 0 };
+                    initStruct(tauCetiModules.tau_home.colony);
+                    initStruct(tauCetiModules.tau_home.mining_pit);
                     messageQueue(loc('tau_home_mission_result',[races[global.race.species].home]),'info',false,['progress']);
                     return true;
                 }
@@ -1554,21 +1779,21 @@ const tauCetiModules = {
                 }
                 if (shipId >= 0 && payCosts($(this)[0])){
                     global.space.shipyard.ships.splice(shipId,1);
-                    global.tauceti.orbital_station.count++;
-                    global.tauceti.colony.count++;
-                    global.tauceti.mining_pit.count++;
+                    incrementStruct('orbital_station','tauceti');
+                    incrementStruct('colony','tauceti');
+                    incrementStruct('mining_pit','tauceti');
                     global.civic.pit_miner.display = true;
                     global.resource.Materials.display = true;
-                    if (global.city.powered && global.city.power >= tauCetiModules.tau_home.orbital_station.powered()){
-                        global.tauceti.orbital_station.on++;
+                    if (powerOnNewStruct($(tauCetiModules.tau_home.orbital_station)[0])){
                         global.tauceti.colony.on++;
                         global.tauceti.mining_pit.on++;
-                        let jRequest = jobScale(4);
-                        if (global.civic[global.civic.d_job].workers < jRequest){
-                            jRequest = global.civic[global.civic.d_job].workers;
-                        }
-                        global.civic.pit_miner.workers += jRequest;
-                        global.civic[global.civic.d_job].workers -= jRequest;
+
+                        let hiredMax = $(tauCetiModules.tau_home.mining_pit)[0].workers();
+                        global.civic.pit_miner.max += hiredMax;
+
+                        let hired = Math.min(hiredMax, global.civic[global.civic.d_job].workers);
+                        global.civic[global.civic.d_job].workers -= hired;
+                        global.civic.pit_miner.workers += hired;
                     }
                     if (global.settings.tabLoad){
                         drawShips();
@@ -1595,8 +1820,11 @@ const tauCetiModules = {
                 let helium = spatialReasoning(15000);
                 let fuel = +int_fuel_adjust($(this)[0].support_fuel().a).toFixed(1);
                 let desc = `<div>${loc('space_red_spaceport_effect1',[loc('tau_planet',[races[global.race.species].home]),$(this)[0].support()])}</div>`;
-                desc = desc + `<div>${loc('plus_max_resource',[helium.toLocaleString(),global.resource.Helium_3.name])}</div>`;
-                desc = desc + `<div class="has-text-caution">${loc('spend_power',[fuel,global.resource[$(this)[0].support_fuel().r].name,$(this)[0].powered()])}</div>`;
+                desc += `<div>${loc('plus_max_resource',[helium.toLocaleString(),global.resource.Helium_3.name])}</div>`;
+                if (global.race.universe === 'evil' && (global.race['lone_survivor'] || global.tech['isolation'])){
+                    desc += `<div>${loc('plus_max_resource',[1,global.resource.Authority.name])}</div>`;
+                }
+                desc += `<div class="has-text-caution">${loc('spend_power',[fuel,global.resource[$(this)[0].support_fuel().r].name,$(this)[0].powered()])}</div>`;
                 return desc;
             },
             support_fuel(){ return { r: 'Helium_3', a: global.tech['isolation'] ? (global.race['lone_survivor'] ? 5 : 25) : 400 }; },
@@ -1605,11 +1833,17 @@ const tauCetiModules = {
             refresh: true,
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.orbital_station.count++;
+                    incrementStruct('orbital_station','tauceti');
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, support: 0, s_max: 0 },
+                    p: ['orbital_station','tauceti']
+                };
             }
         },
         colony: {
@@ -1641,39 +1875,51 @@ const tauCetiModules = {
                     let vault = bank_vault() * 25;
                     vault = spatialReasoning(vault);
                     vault = (+(vault).toFixed(0)).toLocaleString();
-                    desc = desc + `<div>${loc('plus_max_resource',[`\$${vault}`,loc('resource_Money_name')])}</div>`;
+                    desc += `<div>${loc('plus_max_resource',[`\$${vault}`,global.resource.Money.name])}</div>`;
                 }
 
-                desc = desc + `<div>${loc('tau_home_colony_effect',[50,races[global.race.species].home])}</div>`;
+                desc += `<div>${loc('tau_home_colony_effect',[50,races[global.race.species].home])}</div>`;
                 
                 if (global.tech['isolation']){
                     let gasVal = govActive('gaslighter',0);
-                    let mVal = (gasVal ? gasVal + global.tech.broadcast : global.tech.broadcast) * 2;
-                    desc = desc + `<div>${loc('space_red_vr_center_effect1',[mVal])}</div>`;
+                    let mVal = ((gasVal || 0) + (global.tech.broadcast || 0)) * 2;
+                    desc += `<div>${loc('space_red_vr_center_effect1',[mVal])}</div>`;
                 }
                 
-                desc = desc + `<div>${loc('plus_max_resource',[containers,loc('resource_Crates_name')])}</div><div>${loc('plus_max_resource',[containers,loc('resource_Containers_name')])}</div>`;
+                desc += `<div>${loc('plus_max_resource',[containers,global.resource.Crates.name])}</div><div>${loc('plus_max_resource',[containers,global.resource.Containers.name])}</div>`;
+
+                if (global.race.universe === 'evil' && (global.race['lone_survivor'] || global.tech['isolation'])){
+                    desc += `<div>${loc('plus_resource',[5,global.resource.Authority.name])}</div>`;
+                }
 
                 if (global.race['lone_survivor']){
-                    desc = desc + `<div>${loc('gain',[-(fuel),global.resource[$(this)[0].support_fuel().r].name])}</div>`;
+                    desc += `<div>${loc('gain',[-(fuel),global.resource[$(this)[0].support_fuel().r].name])}</div>`;
                 }
                 else {
-                    desc = desc + `<div class="has-text-caution">${loc('spend',[fuel,global.resource[$(this)[0].support_fuel().r].name])}</div>`;
+                    desc += `<div class="has-text-caution">${loc('spend',[fuel,global.resource[$(this)[0].support_fuel().r].name])}</div>`;
                 }
                 return desc;
             },
+            s_type: 'tau_home',
             support(){ return -2; },
             support_fuel(){ return { r: 'Food', a: global.tech['isolation'] ? (global.race['lone_survivor'] ? -2 : 75) : 1000 }; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.colony.count++;
-                    if (global.tauceti.orbital_station.support - $(this)[0].support() <= global.tauceti.orbital_station.s_max){
-                        global.tauceti.colony.on++;
+                    incrementStruct('colony','tauceti');
+                    powerOnNewStruct($(this)[0]);
+                    if (!global.resource.Containers.display){
+                        unlockContainers();
                     }
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['colony','tauceti']
+                };
             },
             citizens(){
                 let pop = global.tech['isolation'] ? 8 : 5;
@@ -1688,7 +1934,6 @@ const tauCetiModules = {
             title(){
                 return housingLabel('small');
             },
-            desc: loc('city_basic_housing_desc'),
             desc(){
                 return $(this)[0].citizens() === 1 ? loc('city_basic_housing_desc') : loc('city_basic_housing_desc_plural',[$(this)[0].citizens()]);
             },
@@ -1708,10 +1953,16 @@ const tauCetiModules = {
             },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.tau_housing.count++;
+                    incrementStruct('tau_housing','tauceti');
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['tau_housing','tauceti']
+                };
             },
             citizens(){
                 let pop = 1;
@@ -1741,11 +1992,17 @@ const tauCetiModules = {
             special(){ return global.tech['magic'] && global.tech.magic >= 3 ? true : false; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.pylon.count++;
+                    incrementStruct('pylon','tauceti');
                     global.resource.Mana.max += spatialReasoning(2);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['pylon','tauceti']
+                };
             }
         },
         cloning_facility: {
@@ -1775,6 +2032,12 @@ const tauCetiModules = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0 },
+                    p: ['cloning_facility','tauceti']
+                };
             }
         },
         horseshoe: buildTemplate(`horseshoe`,'tauceti'),
@@ -1814,14 +2077,20 @@ const tauCetiModules = {
                 return desc;
             },
             support(){ return 1; },
-            powered(){ return powerModifier(global.tech['isolation'] ? 1 : 4); },
+            powered(){ return powerCostMod(global.tech['isolation'] ? 1 : 4); },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.tau_farm.count++;
+                    incrementStruct('tau_farm','tauceti');
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0 },
+                    p: ['tau_farm','tauceti']
+                };
             }
         },
         mining_pit: {
@@ -1840,7 +2109,7 @@ const tauCetiModules = {
             },
             effect(){
                 let desc = `<div class="has-text-caution">${loc('tau_new_support',[$(this)[0].support(), races[global.race.species].home])}</div>`;
-                desc = desc + `<div>${loc('plus_max_resource',[jobScale(global.tech['isolation'] ? 6 : 8),loc('job_pit_miner')])}</div>`;
+                desc = desc + `<div>${loc('plus_max_resource',[$(this)[0].workers(),loc('job_pit_miner')])}</div>`;
                 if (!tauEnabled()){
                     desc = desc + `<div>${loc('plus_max_resource',[1000000,loc('resource_Materials_name')])}</div>`;
                     desc = desc + `<div>${loc('tau_home_mining_pit_effect',[global.resource.Materials.name])}</div>`;
@@ -1867,7 +2136,7 @@ const tauCetiModules = {
                                 desc = desc + `<div>${loc('tau_home_mining_pit_effect2b',res_list)}</div>`;
                             }
                         }
-                        desc = desc + `<div>${loc('tau_gas_womling_station_effect',[8,global.resource.Cement.name])}</div>`;
+                        desc = desc + `<div>${loc('production',[8,global.resource.Cement.name])}</div>`;
                     }
                     else {
                         desc = desc + `<div>${loc('tau_home_mining_pit_effect2',[global.resource.Bolognium.name,global.resource.Adamantite.name,global.resource.Stone.name])}</div>`;
@@ -1875,17 +2144,30 @@ const tauCetiModules = {
                 }
                 return desc;
             },
+            s_type: 'tau_home',
             support(){ return -1; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
+            workers(){ return jobScale(global.tech['isolation'] ? 6 : 8); },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.mining_pit.count++;
-                    if (global.tauceti.orbital_station.support - $(this)[0].support() <= global.tauceti.orbital_station.s_max){
-                        global.tauceti.mining_pit.on++;
+                    incrementStruct('mining_pit','tauceti');
+                    if (powerOnNewStruct($(this)[0])){
+                        let hiredMax = $(this)[0].workers();
+                        global.civic.pit_miner.max += hiredMax;
+
+                        let hired = Math.min(hiredMax, global.civic[global.civic.d_job].workers);
+                        global.civic[global.civic.d_job].workers -= hired;
+                        global.civic.pit_miner.workers += hired;
                     }
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['mining_pit','tauceti']
+                };
             }
         },
         excavate: {
@@ -1923,9 +2205,9 @@ const tauCetiModules = {
             cost: {},
             queue_complete(){ return 0; },
             effect(){
-                let desc = `<div>${loc('plus_max_resource',[20+'%',loc('resource_Knowledge_name')])}</div>`;
+                let desc = `<div>${loc('plus_max_resource',[20+'%',global.resource.Knowledge.name])}</div>`;
                 if (global.tech['isolation']){
-                    desc = desc + `<div>${loc('plus_max_resource',[(global.race['lone_survivor'] ? 3500000 : 6500000).toLocaleString(),loc('resource_Knowledge_name')])}</div>`;
+                    desc = desc + `<div>${loc('plus_max_resource',[(global.race['lone_survivor'] ? 3500000 : 6500000).toLocaleString(),global.resource.Knowledge.name])}</div>`;
                     desc = desc + `<div>${loc('plus_max_resource',[(200000).toLocaleString(),global.resource.Cipher.name])}</div>`;
                     desc = desc + `<div>${loc(`space_lander_effect3`,[production('alien_outpost'),global.resource.Cipher.name])}</div>`;
                 }
@@ -1944,6 +2226,12 @@ const tauCetiModules = {
             },
             action(){
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 1, on: 0 },
+                    p: ['alien_outpost','tauceti']
+                };
             }
         },
         jump_gate: {
@@ -1951,7 +2239,7 @@ const tauCetiModules = {
             title: loc('tau_jump_gate'),
             desc(wiki){
                 if (!global.tauceti.hasOwnProperty('jump_gate') || global.tauceti.jump_gate.count < 100 || wiki){
-                    return `<div>${loc('tau_jump_gate')}</div><div class="has-text-special">${loc('requires_segmemts',[100])}</div>`;
+                    return `<div>${loc('tau_jump_gate')}</div><div class="has-text-special">${loc('requires_segments',[100])}</div>`;
                 }
                 else {
                     return `<div>${loc('tau_jump_gate')}</div>`;
@@ -1967,7 +2255,7 @@ const tauCetiModules = {
                 Materials(offset){ return ((offset || 0) + (global.tauceti.hasOwnProperty('jump_gate') ? global.tauceti.jump_gate.count : 0)) < 100 ? 12500 : 0; },
             },
             effect(wiki){
-                let count = (wiki || 0) + (global.tauceti.hasOwnProperty('jump_gate') ? global.tauceti.jump_gate.count : 0);
+                let count = (wiki?.count ?? 0) + (global.tauceti.hasOwnProperty('jump_gate') ? global.tauceti.jump_gate.count : 0);
                 if (count < 100){
                     let remain = 100 - count;
                     return `<div>${loc('tau_jump_gate_effect')}</div><div class="has-text-special">${loc('space_dwarf_collider_effect2',[remain])}</div>`;
@@ -1979,11 +2267,17 @@ const tauCetiModules = {
             action(){
                 if (payCosts($(this)[0])){
                     if (global.tauceti.jump_gate.count < 100){
-                        global.tauceti.jump_gate.count++;
+                        incrementStruct('jump_gate','tauceti');
                         return true;
                     }
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['jump_gate','tauceti']
+                };
             }
         },
         fusion_generator: {
@@ -2015,11 +2309,17 @@ const tauCetiModules = {
             powered(){ return powerModifier(-32); },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.fusion_generator.count++;
+                    incrementStruct('fusion_generator','tauceti');
                     global.tauceti.fusion_generator.on++;
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0 },
+                    p: ['fusion_generator','tauceti']
+                };
             }
         },
         repository: {
@@ -2103,9 +2403,9 @@ const tauCetiModules = {
                         return 0;
                 }
             },
-            effect(){
+            effect(wiki){
                 let storage = '<div class="aTable">';
-                let multiplier = tpStorageMultiplier('repository');
+                let multiplier = tpStorageMultiplier('repository',false,wiki);
                 let containers = 250;
                 for (const res of $(this)[0].res()){
                     if (global.resource[res].display){
@@ -2114,14 +2414,22 @@ const tauCetiModules = {
                     }
                 };
                 if (global.tech['isolation']){
-                    storage = storage + `<span>${loc('plus_max_resource',[containers,loc('resource_Crates_name')])}</span><span>${loc('plus_max_resource',[containers,loc('resource_Containers_name')])}</span>`;
+                    storage = storage + `<span>${loc('plus_max_resource',[containers,global.resource.Crates.name])}</span><span>${loc('plus_max_resource',[containers,global.resource.Containers.name])}</span>`;
                 }
                 storage = storage + '</div>';
                 return storage;
             },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.repository.count++;
+                    incrementStruct('repository','tauceti');
+
+                    let containers = 250;
+                    global.resource.Crates.max += containers;
+                    global.resource.Containers.max += containers;
+                    if (!global.resource.Containers.display){
+                        unlockContainers();
+                    }
+
                     let multiplier = tpStorageMultiplier('repository');
                     for (const res of $(this)[0].res()){
                         if (global.resource[res].display){
@@ -2131,6 +2439,12 @@ const tauCetiModules = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count : 0 },
+                    p: ['repository','tauceti']
+                };
             }
         },
         tau_factory: {
@@ -2150,10 +2464,10 @@ const tauCetiModules = {
             },
             effect(){
                 let desc = `<div class="has-text-caution">${loc('tau_new_support',[$(this)[0].support(), races[global.race.species].home])}</div>`;
-                desc = desc + `<div>${loc('tau_home_tau_factory_effect',[global.tech['isolation'] ? 5 : 3])}</div>`;
+                desc = desc + `<div>${loc('tau_home_tau_factory_effect',[$(this)[0].manufacturing()])}</div>`;
                 if (global.tech['isolation']){
                     if (!global.race['flier']){
-                        desc = desc + `<div>${loc('city_cement_plant_effect1',[jobScale(2)])}</div>`;
+                        desc = desc + `<div>${loc('plus_max_resource',[jobScale(2),loc(`job_cement_worker`)])}</div>`;
                     }
                     desc = desc + `<div>${loc('space_red_fabrication_effect1',[jobScale(5)])}</div>`;
                 }
@@ -2162,17 +2476,31 @@ const tauCetiModules = {
                 return desc;
             },
             special: true,
+            s_type: 'tau_home',
             support(){ return -1; },
             powered(){ return powerCostMod(global.tech['isolation'] ? 2 : 5); },
+            manufacturing() { return global.tech['isolation'] ? 5 : 3; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.tau_factory.count++;
-                    if (global.tauceti.orbital_station.support - $(this)[0].support() <= global.tauceti.orbital_station.s_max){
-                        global.tauceti.tau_factory.on++;
+                    global.civic.craftsman.display = true; // Needed in Lone Survivor
+                    incrementStruct('tau_factory','tauceti');
+                    if (powerOnNewStruct($(this)[0])){
+                        global.city.factory.Alloy += $(this)[0].manufacturing();
                     }
                     return true;
                 }
                 return false;
+            },
+            post(){
+                if (global.race['lone_survivor']){
+                    defineIndustry();
+                }
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0 },
+                    p: ['tau_factory','tauceti']
+                };
             }
         },
         infectious_disease_lab: {
@@ -2200,14 +2528,14 @@ const tauCetiModules = {
                 desc = desc + `<div>${loc('city_max_knowledge',[Math.round(sci).toLocaleString()])}</div>`;
                 if (global.tech['isolation']){
                     let elerium = spatialReasoning(375);
-                    desc = desc + `<div>${loc('plus_max_resource',[elerium,loc('resource_Elerium_name')])}</div>`;
+                    desc = desc + `<div>${loc('plus_max_resource',[elerium,global.resource.Elerium.name])}</div>`;
                     desc = desc + `<div>${loc('city_wardenclyffe_effect1',[jobScale(2), global.civic.professor.name])}</div>`;
                     desc = desc + `<div>${loc('city_wardenclyffe_effect1',[jobScale(1), global.civic.scientist.name])}</div>`;
                     desc = desc + `<div>${loc('space_zero_g_lab_effect',[jobScale(1)])}</div>`;
                     desc = desc + `<div>${loc('city_library_effect',[75])}</div>`;
                 }
                 if (global.tech['alien_crafting']){
-                    desc = desc + `<div>${loc('tau_gas_womling_station_effect',[65,global.resource.Quantium.name])}</div>`;
+                    desc = desc + `<div>${loc('production',[65,global.resource.Quantium.name])}</div>`;
                 }
                 if (global.tech['focus_cure']){
                     desc = desc + `<div>${loc('tau_home_disease_lab_cure',[+global.tauceti.infectious_disease_lab.cure.toFixed(1)])}</div>`;
@@ -2218,17 +2546,22 @@ const tauCetiModules = {
                 desc = desc + `<div class="has-text-caution">${loc('minus_power',[$(this)[0].powered()])}</div>`;
                 return desc;
             },
+            s_type: 'tau_home',
             support(){ return -1; },
             powered(){ return powerCostMod(global.tech['isolation'] ? (global.race['lone_survivor'] ? 2 : 8) : 35); },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.infectious_disease_lab.count++;
-                    if (global.tauceti.orbital_station.support - $(this)[0].support() <= global.tauceti.orbital_station.s_max){
-                        global.tauceti.infectious_disease_lab.on++;
-                    }
+                    incrementStruct('infectious_disease_lab','tauceti');
+                    powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0, cure: 0 },
+                    p: ['infectious_disease_lab','tauceti']
+                };
             },
             post(){
                 if (global.tech.disease === 1){
@@ -2236,6 +2569,10 @@ const tauCetiModules = {
                     messageQueue(loc('tau_plague4',[loc('tab_tauceti')]),'info',false,['progress']);
                     drawTech();
                 }
+                loadFoundry();
+            },
+            postPower(on){
+                limitCraftsmen('Quantium');
             }
         },
         tauceti_casino: {
@@ -2260,8 +2597,8 @@ const tauCetiModules = {
             powered(){ return powerCostMod(global.race['lone_survivor'] ? 1 : 2); },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.tauceti_casino.count++;
-                    if (!global.race['joyless']){
+                    incrementStruct('tauceti_casino','tauceti');
+                    if (global.tech['theatre'] && !global.race['joyless']){
                         global.civic.entertainer.max += jobScale(1);
                         global.civic.entertainer.display = true;
                     }
@@ -2269,6 +2606,12 @@ const tauCetiModules = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['tauceti_casino','tauceti']
+                };
             },
             citizens(){
                 let gain = 1;
@@ -2309,8 +2652,8 @@ const tauCetiModules = {
                 let bake = 15 * modifier;
 
                 let desc = `<div class="has-text-caution">${loc('tau_home_cultureal_effect1',[$(this)[0].p_fuel().a,global.resource[$(this)[0].p_fuel().r].name,$(this)[0].title])}</div>`;
-                desc += `<div>${loc('city_tourist_center_effect3',[cas])}</div>`;
-                desc += `<div>${loc('city_tourist_center_effect4',[mon])}</div>`;
+                desc += `<div>${loc('city_tourist_center_effect2',[cas,structName('casino')])}</div>`;
+                desc += `<div>${loc('city_tourist_center_effect2',[mon,loc(`arpa_project_monument_title`)])}</div>`;
                 desc += `<div>${loc('tau_home_cultureal_effect2',[womling,loc('tau_red_womlings')])}</div>`;
                 if (global.tech.tau_culture >= 2){
                     desc += `<div>${loc('tau_home_cultureal_effect3',[bake,loc(`tau_gas2_alien_station_data2_r${global.race.tau_food_item || 0}`)])}</div>`;
@@ -2322,11 +2665,17 @@ const tauCetiModules = {
             p_fuel(){ return { r: 'Food', a: (global.race['lone_survivor'] ? 25 : 500) }; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.tau_cultural_center.count++;
-                    global.tauceti.tau_cultural_center.on++;
+                    incrementStruct('tau_cultural_center','tauceti');
+                    powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0 },
+                    p: ['tau_cultural_center','tauceti']
+                };
             }
         },
     },
@@ -2400,7 +2749,7 @@ const tauCetiModules = {
             refresh: true,
             action(){
                 if (tauEnabled() && payCosts($(this)[0])){
-                    global.tauceti.orbital_platform.count++;
+                    incrementStruct('orbital_platform','tauceti');
                     powerOnNewStruct($(this)[0]);
                     if (global.tech['tau_red'] === 1){
                         global.tech['tau_red'] = 2;
@@ -2409,6 +2758,12 @@ const tauCetiModules = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, support: 0, s_max: 0 },
+                    p: ['orbital_platform','tauceti']
+                };
             }
         },
         contact: {
@@ -2550,17 +2905,22 @@ const tauCetiModules = {
                 }
                 return val;
             },
+            s_type: 'tau_red',
             support(){ return -1; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.overseer.count++;
-                    if (global.tauceti.orbital_platform.support - $(this)[0].support() <= global.tauceti.orbital_platform.s_max){
-                        global.tauceti.overseer.on++;
-                    }
+                    incrementStruct('overseer','tauceti');
+                    powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0, pop: 0, working: 0, injured: 0, morale: 0, loyal: 0, prod: 0 },
+                    p: ['overseer','tauceti']
+                };
             }
         },
         womling_village: {
@@ -2584,17 +2944,22 @@ const tauCetiModules = {
                 }
                 return desc;
             },
+            s_type: 'tau_red',
             support(){ return -1; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.womling_village.count++;
-                    if (global.tauceti.orbital_platform.support - $(this)[0].support() <= global.tauceti.orbital_platform.s_max){
-                        global.tauceti.womling_village.on++;
-                    }
+                    incrementStruct('womling_village','tauceti');
+                    powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count : 1, on: 1 },
+                    p: ['womling_village','tauceti']
+                };
             }
         },
         womling_farm: {
@@ -2621,17 +2986,22 @@ const tauCetiModules = {
                 desc = desc + `<div>${loc('tau_red_womling_farm_effect2',[food / 2 * farmers])}</div>`;
                 return desc;
             },
+            s_type: 'tau_red',
             support(){ return -1; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.womling_farm.count++;
-                    if (global.tauceti.orbital_platform.support - $(this)[0].support() <= global.tauceti.orbital_platform.s_max){
-                        global.tauceti.womling_farm.on++;
-                    }
+                    incrementStruct('womling_farm','tauceti');
+                    powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count : 1, on: 1, farmers: 0 },
+                    p: ['womling_farm','tauceti']
+                };
             }
         },
         womling_mine: {
@@ -2664,18 +3034,23 @@ const tauCetiModules = {
                 desc = desc + `<div>${loc('tau_red_womling_employ',[6])}</div>`;
                 return desc;
             },
+            s_type: 'tau_red',
             support(){ return -1; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.womling_mine.count++;
+                    incrementStruct('womling_mine','tauceti');
                     global.resource.Unobtainium.display = true;
-                    if (global.tauceti.orbital_platform.support - $(this)[0].support() <= global.tauceti.orbital_platform.s_max){
-                        global.tauceti.womling_mine.on++;
-                    }
+                    powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0, miners: 0 },
+                    p: ['womling_mine','tauceti']
+                };
             },
             flair(){ return loc('tau_red_womling_mine_flair'); }
         },
@@ -2727,18 +3102,23 @@ const tauCetiModules = {
                 }
                 return val;
             },
+            s_type: 'tau_red',
             support(){ return -1; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.womling_fun.count++;
-                    if (global.tauceti.orbital_platform.support - $(this)[0].support() <= global.tauceti.orbital_platform.s_max){
-                        global.tauceti.womling_fun.on++;
-                    }
+                    incrementStruct('womling_fun','tauceti');
+                    powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0 },
+                    p: ['womling_fun','tauceti']
+                };
+            },
         },
         womling_lab: {
             id: 'tauceti-womling_lab',
@@ -2761,18 +3141,23 @@ const tauCetiModules = {
                 desc = desc + `<div>${loc('tau_red_womling_employ_single',[1])}</div>`;
                 return desc;
             },
+            s_type: 'tau_red',
             support(){ return -1; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.womling_lab.count++;
-                    if (global.tauceti.orbital_platform.support - $(this)[0].support() <= global.tauceti.orbital_platform.s_max){
-                        global.tauceti.womling_lab.on++;
-                    }
+                    incrementStruct('womling_lab','tauceti');
+                    powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0, scientist: 0, tech: 0 },
+                    p: ['womling_lab','tauceti']
+                };
+            },
         },
     },
     tau_gas: {
@@ -2923,15 +3308,32 @@ const tauCetiModules = {
             special(){ return global.tech['isolation'] ? true : false; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.refueling_station.count++;
-                    powerOnNewStruct($(this)[0]);
+                    incrementStruct('refueling_station','tauceti');
+                    if (powerOnNewStruct($(this)[0])) {
+                        if (global.tech['isolation']){
+                            // Graphene allocation is stored on the Titan graphene factory even after isolation
+                            if (global.race['kindling_kindred'] || global.race['smoldering']){
+                                global.space.g_factory.Oil++;
+                            }
+                            else {
+                                global.space.g_factory.Lumber++;
+                            }
+                        }
+                    }
                     return true;
                 }
                 return false;
             },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['refueling_station','tauceti']
+                };
+            },
             post(){
                 if (global.tech.tau_gas === 2){
                     global.tech.tau_gas = 3;
+                    defineIndustry();
                     drawTech();
                 }
             }
@@ -2951,6 +3353,7 @@ const tauCetiModules = {
                 Sheet_Metal(offset){ return spaceCostMultiplier('ore_refinery', offset, wom_recycle(118000), 1.28, 'tauceti'); },
             },
             powered(){ return powerCostMod(global.tech['isolation'] ? 2 : 8); },
+            smelting(){ return global.tech['isolation'] ? 12 : 4; },
             effect(){
                 let ore = global.tauceti.hasOwnProperty('ore_refinery') ? global.tauceti.ore_refinery.fill : 0;
                 let max = global.tauceti.hasOwnProperty('ore_refinery') ? global.tauceti.ore_refinery.max : 0;
@@ -2958,28 +3361,27 @@ const tauCetiModules = {
                 let desc = `<div>${loc('tau_gas_ore_refinery_effect',[+ore.toFixed(2)])}</div>`;
                 desc = desc + `<div>${loc('tau_gas_ore_refinery_effect2',[max])}</div>`;
                 desc = desc + `<div>${loc('tau_gas_ore_refinery_effect3',[refine])}</div>`;
-                desc = desc + `<div>${loc('interstellar_stellar_forge_effect3',[global.tech['isolation'] ? 12 : 4])}</div>`;
+                desc = desc + `<div>${loc('interstellar_stellar_forge_effect3',[$(this)[0].smelting()])}</div>`;
                 desc = desc + `<div class="has-text-caution">${loc('minus_power',[$(this)[0].powered()])}</div>`;
                 return desc;
             },
             special: true,
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.ore_refinery.count++;
-                    if (global.city.powered && global.city.power >= $(this)[0].powered()){
-                        global.tauceti.ore_refinery.on++;
-                        global.city.smelter.cap += global.tech['isolation'] ? 12 : 2;
-                        global.city.smelter.Steel += global.tech['isolation'] ? 12 : 2;
-                        if (global.race['evil']) {
-                            global.city['smelter'].Wood += global.tech['isolation'] ? 12 : 2;
-                        }
-                        else {
-                            global.city.smelter.Oil += global.tech['isolation'] ? 12 : 2;
-                        }
+                    incrementStruct('ore_refinery','tauceti');
+                    if (powerOnNewStruct($(this)[0])){
+                        let num_smelters = $(this)[0].smelting();
+                        addSmelter(num_smelters, 'Steel', global.race['evil'] ? 'Wood' : 'Oil');
                     }
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0, max: 0, fill: 0 },
+                    p: ['ore_refinery','tauceti']
+                };
             },
             post(){
                 if (global.tech.tau_roid === 3){
@@ -3016,11 +3418,17 @@ const tauCetiModules = {
             },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.whaling_station.count++;
+                    incrementStruct('whaling_station','tauceti');
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0, max: 0, fill: 0 },
+                    p: ['whaling_station','tauceti']
+                };
             },
             post(){
                 if (global.tech.tau_whale === 1){
@@ -3049,9 +3457,9 @@ const tauCetiModules = {
                 if (global.tech['womling_gene']){
                     prod *= 1.25;
                 }
-                let desc = `<div>${loc('tau_gas_womling_station_effect',[prod,tauCetiModules.tau_gas.info.name()])}</div>`;
+                let desc = `<div>${loc('production',[prod,tauCetiModules.tau_gas.info.name()])}</div>`;
                 if (!global.race['flier']){
-                    desc = desc + `<div>${loc('city_cement_plant_effect1',[jobScale(1)])}</div>`;
+                    desc = desc + `<div>${loc('plus_max_resource',[jobScale(1),loc(`job_cement_worker`)])}</div>`;
                 }
                 desc = desc + `<div>${loc('space_red_fabrication_effect1',[jobScale(1)])}</div>`;
                 desc = desc + `<div class="has-text-caution">${loc('minus_power',[$(this)[0].powered()])}</div>`;
@@ -3059,12 +3467,19 @@ const tauCetiModules = {
             },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.womling_station.count++;
+                    global.civic.craftsman.display = true; // Unlikely but possible to unlock this way in Lone Survivor
+                    incrementStruct('womling_station','tauceti');
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0 },
+                    p: ['womling_station','tauceti']
+                };
+            },
         },
     },
     tau_roid: {
@@ -3125,15 +3540,21 @@ const tauCetiModules = {
             },
             support_fuel(){ return { r: 'Helium_3', a: global.tech['isolation'] ? 15 : 250 }; },
             support(){ return 1; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             refresh: true,
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.patrol_ship.count++;
+                    incrementStruct('patrol_ship','tauceti');
                     global.tauceti.patrol_ship.on++;
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, support: 0, s_max: 0 },
+                    p: ['patrol_ship','tauceti']
+                };
             }
         },
         mining_ship: {
@@ -3155,17 +3576,27 @@ const tauCetiModules = {
                 desc = desc + `<div class="has-text-caution">${loc('spend',[fuel,global.resource[$(this)[0].support_fuel().r].name])}</div>`;
                 return desc;
             },
+            s_type: 'tau_roid',
             support_fuel(){ return { r: 'Helium_3', a: global.tech['isolation'] ? 12 : 75 }; },
             support(){ return -1; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             special: true,
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.mining_ship.count++;
-                    global.tauceti.mining_ship.on++;
+                    incrementStruct('mining_ship','tauceti');
+                    powerOnNewStruct($(this)[0]);
+                    if (global.tauceti.mining_ship.count === 1){
+                        defineIndustry();
+                    }
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0, common: 50, uncommon: 50, rare: 50 },
+                    p: ['mining_ship','tauceti']
+                };
             }
         },
         whaling_ship: {
@@ -3187,16 +3618,23 @@ const tauCetiModules = {
                 desc = desc + `<div class="has-text-caution">${loc('spend',[fuel,global.resource[$(this)[0].support_fuel().r].name])}</div>`;
                 return desc;
             },
+            s_type: 'tau_roid',
             support_fuel(){ return { r: 'Helium_3', a: global.tech['isolation'] ? 14 : 90 }; },
             support(){ return -1; },
-            powered(){ return powerCostMod(1); },
+            powered(){ return 0; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti.whaling_ship.count++;
-                    global.tauceti.whaling_ship.on++;
+                    incrementStruct('whaling_ship','tauceti');
+                    powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0 },
+                    p: ['whaling_ship','tauceti']
+                };
             }
         },
     },
@@ -3244,7 +3682,7 @@ const tauCetiModules = {
             effect(){ return loc('tau_gas2_alien_station_repair_effect',[tauCetiModules.tau_gas2.info.name()]); },
             action(){
                 if (payCosts($(this)[0])){
-                    global.tauceti['alien_station'] = { count: 0 };
+                    initStruct(tauCetiModules.tau_gas2.alien_station);
                     messageQueue(loc('tau_gas2_alien_station_msg',[tauCetiModules.tau_gas2.info.name()]),'info',false,['progress']);
                     return true;
                 }
@@ -3276,7 +3714,7 @@ const tauCetiModules = {
             },
             effect(wiki){
                 let effectText = '';
-                let count = (wiki || 0) + (global.tauceti.hasOwnProperty('alien_station') ? global.tauceti.alien_station.count : 0);
+                let count = (wiki?.count ?? 0) + (global.tauceti.hasOwnProperty('alien_station') ? global.tauceti.alien_station.count : 0);
                 if (count < 100){
                     effectText += `<div class="has-text-special">${loc('tau_gas2_alien_station_repaired',[count])}</div>`;
                     return effectText;
@@ -3288,21 +3726,30 @@ const tauCetiModules = {
             action(){
                 if (payCosts($(this)[0])){
                     if (global.tauceti.alien_station.count < 100){
-                        global.tauceti.alien_station.count++;
+                        incrementStruct('alien_station','tauceti');
                         if (global.tauceti.alien_station.count >= 100){
                             global.tech.tau_gas2 = 5;
                             global.tauceti['alien_space_station'] = { count: 1, on: 0 };
+                            drawTech();
                         }
                         return true;
                     }
                 }
                 return false;
             },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['alien_station','tauceti']
+                };
+            },
             post(){
-                if (global.resource.Elerium.diff >= 10){
-                    global.tauceti.alien_space_station.on = 1; 
+                if (global.tauceti.hasOwnProperty('alien_space_station')){
+                    if (global.resource.Elerium.diff >= 10){
+                        global.tauceti.alien_space_station.on = 1;
+                    }
+                    renderTauCeti();
                 }
-                renderTauCeti();
             }
         },
         alien_space_station: {
@@ -3340,7 +3787,7 @@ const tauCetiModules = {
             title: loc('tech_matrioshka_brain'),
             desc(wiki){
                 if (!global.tauceti.hasOwnProperty('matrioshka_brain') || global.tauceti.matrioshka_brain.count < 1000 || wiki){
-                    return `<div>${loc('tech_matrioshka_brain')}</div><div class="has-text-special">${loc('requires_segmemts',[1000])}</div>`;
+                    return `<div>${loc('tech_matrioshka_brain')}</div><div class="has-text-special">${loc('requires_segments',[1000])}</div>`;
                 }
                 else {
                     return `<div>${loc('tech_matrioshka_brain')}</div>`;
@@ -3363,7 +3810,7 @@ const tauCetiModules = {
             },
             effect(wiki){
                 let effectText = '';
-                let count = (wiki || 0) + (global.tauceti.hasOwnProperty('matrioshka_brain') ? global.tauceti.matrioshka_brain.count : 0);
+                let count = (wiki?.count ?? 0) + (global.tauceti.hasOwnProperty('matrioshka_brain') ? global.tauceti.matrioshka_brain.count : 0);
                 if (count < 1000){
                     effectText += `<div class="has-text-special">${loc('tau_gas2_matrioshka_brain_seg',[1000 - count])}</div>`;
                 }
@@ -3372,7 +3819,7 @@ const tauCetiModules = {
             action(){
                 if (payCosts($(this)[0])){
                     if (global.tauceti.matrioshka_brain.count < 1000){
-                        global.tauceti.matrioshka_brain.count++;
+                        incrementStruct('matrioshka_brain','tauceti');
                         if (global.tauceti.matrioshka_brain.count >= 1000){
                             global.tech['m_brain'] = 1;
                         }
@@ -3380,14 +3827,20 @@ const tauCetiModules = {
                     }
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['matrioshka_brain','tauceti']
+                };
+            },
         },
         ignition_device: {
             id: 'tauceti-ignition_device',
             title: loc('tech_ignition_device'),
             desc(wiki){
                 if (!global.tauceti.hasOwnProperty('ignition_device') || global.tauceti.ignition_device.count < 10 || wiki){
-                    return `<div>${loc('tech_ignition_device')}</div><div class="has-text-special">${loc('requires_segmemts',[10])}</div>`;
+                    return `<div>${loc('tech_ignition_device')}</div><div class="has-text-special">${loc('requires_segments',[10])}</div>`;
                 }
                 else {
                     return `<div>${loc('tech_ignition_device')}</div>`;
@@ -3408,7 +3861,7 @@ const tauCetiModules = {
             },
             effect(wiki){
                 let effectText = '';
-                let count = (wiki || 0) + (global.tauceti.hasOwnProperty('ignition_device') ? global.tauceti.ignition_device.count : 0);
+                let count = (wiki?.count ?? 0) + (global.tauceti.hasOwnProperty('ignition_device') ? global.tauceti.ignition_device.count : 0);
                 if (count < 10){
                     effectText += `<div class="has-text-special">${loc('tau_gas2_ignition_device_seg',[10 - count])}</div>`;
                 }
@@ -3417,15 +3870,22 @@ const tauCetiModules = {
             action(){
                 if (payCosts($(this)[0])){
                     if (global.tauceti.ignition_device.count < 10){
-                        global.tauceti.ignition_device.count++;
+                        incrementStruct('ignition_device','tauceti');
                         if (global.tauceti.ignition_device.count >= 10){
                             global.tech['m_ignite'] = 1;
+                            renderTauCeti();
                         }
                         return true;
                     }
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['ignition_device','tauceti']
+                };
+            },
         },
         ignite_gas_giant: {
             id: 'tauceti-ignite_gas_giant',
@@ -3476,7 +3936,7 @@ for (let i=1; i<9; i++){
         action(){
             if (payCosts($(this)[0])){
                 global.race['gas_name'] = i;
-                global.tauceti['refueling_station'] = { count: 0, on: 0 };
+                initStruct(tauCetiModules.tau_gas.refueling_station);
                 return true;
             }
             return false;
@@ -3511,7 +3971,7 @@ function matrixProjection(){
 }
 
 function retireProjection(){
-    let gains = calcPrestige('retire');
+    let gains = calcPrestige('retired');
     let plasmidType = global.race.universe === 'antimatter' ? loc('resource_AntiPlasmid_plural_name') : loc('resource_Plasmid_plural_name');
     let skilled = global.stats.retire + 1 === global.stats.matrix ? `<div class="has-text-advanced">${loc('tau_star_matrix_skilled',[1])}</div>` : ``;
     return `<div class="has-text-advanced">${loc('interstellar_ascension_trigger_effect2',[gains.plasmid,plasmidType])}</div><div class="has-text-advanced">${loc('interstellar_ascension_trigger_effect2',[gains.phage,loc('resource_Phage_name')])}</div><div class="has-text-advanced">${loc('tau_star_matrix_servants',[1])}</div>${skilled}`;
@@ -3524,11 +3984,17 @@ function edenProjection(){
 }
 
 function defineWomlings(){
-    global.tauceti['overseer'] = { count : 0, on: 0, pop: 0, working: 0, injured: 0, morale: 0, loyal: 0, prod: 0 };
-    global.tauceti['womling_village'] = global.race['lone_survivor'] ? { count : 2, on: 2 } : { count : 1, on: 1 };
-    global.tauceti['womling_mine'] = global.race['lone_survivor'] ? { count : 1, on: 1, miners: 0 } : { count : 0, on: 0, miners: 0 };
-    global.tauceti['womling_farm'] = { count : 1, on: 1, farmers: 0 };
-    global.tauceti['womling_fun'] = { count : 0, on: 0 };
+    initStruct(tauCetiModules.tau_red.overseer);
+    initStruct(tauCetiModules.tau_red.womling_village);
+    initStruct(tauCetiModules.tau_red.womling_mine);
+    initStruct(tauCetiModules.tau_red.womling_fun);
+    initStruct(tauCetiModules.tau_red.womling_farm);
+    if (global.race['lone_survivor']){
+        global.tauceti.womling_village.count = 2;
+        global.tauceti.womling_village.on = 2;
+        global.tauceti.womling_mine.count = 1;
+        global.tauceti.womling_mine.on = 1;
+    }
 }
 
 function wom_repulse(v){
@@ -3689,7 +4155,7 @@ export function drawShipYard(){
                 values += `<b-dropdown-item aria-role="listitem" v-on:click="setVal('${k}','${v}')" class="${k} a${idx}" data-val="${v}" v-show="avail('${k}','${idx}','${v}')">${loc(`outer_shipyard_${k}_${v}`)}</b-dropdown-item>`;
             });
 
-            options.append(`<b-dropdown :triggers="['hover']" aria-role="list">
+            options.append(`<b-dropdown :triggers="['hover', 'click']" aria-role="list">
                 <button class="button is-info" slot="trigger">
                     <span>${loc(`outer_shipyard_${k}`)}: {{ b.${k} | lbl('${k}') }}</span>
                 </button>${values}
@@ -3784,33 +4250,32 @@ export function drawShipYard(){
                         Object.keys(raw).forEach(function(res){
                             costs[res] = function(){ return raw[res]; }
                         });
-                        if (payCosts(false, costs)){
+                        if (!(global.settings.qKey && keyMap.q) && payCosts(false, costs)){
                             let ship = deepClone(global.space.shipyard.blueprint);
-                            ship['location'] = 'spc_dwarf';
-                            ship['xy'] = genXYcoord('spc_dwarf');
-                            ship['origin'] = deepClone(ship['xy']);
-                            ship['destination'] = deepClone(ship['xy']);
-                            ship['transit'] = 0;
-                            ship['dist'] = 0;
-                            ship['damage'] = 0;
-                            ship['fueled'] = false;
-
-                            if (ship.name.length === 0){
-                                ship.name = getRandomShipName();
+                            buildTPShip(ship,false);
+                        }
+                        else {
+                            let used = 0;
+                            for (let j=0; j<global.queue.queue.length; j++){
+                                used += Math.ceil(global.queue.queue[j].q / global.queue.queue[j].qs);
                             }
-
-                            let num = 1;
-                            let name = ship.name;
-                            while (global.space.shipyard.ships.filter(s => s.name === name).length > 0){
-                                num++;
-                                name = ship.name + ` ${num}`;
+                            if (used < global.queue.max){
+                                let blueprint = deepClone(global.space.shipyard.blueprint);
+                                global.queue.queue.push({ 
+                                    id: `tp-ship-${Math.rand(0,100000)}`, 
+                                    action: 'tp-ship', 
+                                    type: blueprint,
+                                    label: blueprint.name, 
+                                    cna: false, 
+                                    time: 0, 
+                                    q: 1, 
+                                    qs: 1, 
+                                    t_max: 0, 
+                                    bres: false 
+                                });
+                                global.space.shipyard.blueprint.name = getRandomShipName();
+                                buildQueue();
                             }
-                            ship.name = name;
-
-                            global.space.shipyard.ships.push(ship);
-                            drawShips();
-                            updateCosts();
-                            global.space.shipyard.blueprint.name = getRandomShipName();
                         }
                     }
                 },
@@ -3853,6 +4318,86 @@ export function drawShipYard(){
 
         yard.append($(`<div id="shipList" class="sticky"></div>`));
         drawShips();
+    }
+}
+
+export function buildTPShipQueue(action){
+    if (payCosts(false, action.cost)){
+        buildTPShip(deepClone(action.bp,true));
+        return true;
+    }
+    return false;
+}
+
+export function TPShipDesc(parent,obj){
+    let ship = obj.type;
+    let raw = shipCosts(ship);
+    let costs = {};
+    Object.keys(raw).forEach(function(res){
+        costs[res] = function(){ return raw[res]; }
+    });
+
+    var desc = $(`<div class="shipPopper"></div>`);
+    var shipPattern = $(`<div class="divider">${loc(`outer_shipyard_class_${ship.class}`)} | ${loc(`outer_shipyard_engine_${ship.engine}`)} | ${loc(`outer_shipyard_weapon_${ship.weapon}`)} | ${loc(`outer_shipyard_power_${ship.power}`)} | ${loc(`outer_shipyard_sensor_${ship.sensor}`)}</div>`);
+    parent.append(desc);
+
+    desc.append(shipPattern);
+
+    var cost = $('<div class="costList"></div>');
+    desc.append(cost);
+
+    let tc = timeCheck({ id: ship.name , cost: costs, doNotAdjustCost: true }, false, true);
+    Object.keys(costs).forEach(function (res){
+        if (costs[res]() > 0){
+            var label = res === 'Money' ? '$' : global.resource[res].name + ': ';
+            var color = global.resource[res].amount >= costs[res]() ? 'has-text-dark' : ( res === tc.r ? 'has-text-danger' : 'has-text-alert');
+            cost.append($(`<div class="${color}" data-${res}="${costs[res]()}">${label}${sizeApproximation(costs[res](),2)}</div>`));
+        }
+    });
+
+    if (tc && tc['t']){
+        desc.append($(`<div class="divider"></div><div id="popTimer" class="flair has-text-advanced">{{ t | timer }}</div>`));
+        vBind({
+            el: '#popTimer',
+            data: tc,
+            filters: {
+                timer(t){
+                    return loc('action_ready',[timeFormat(t)]);
+                }
+            }
+        });
+    }
+    
+    return desc;
+}
+
+function buildTPShip(ship, queue){
+    ship['location'] = 'spc_dwarf';
+    ship['xy'] = genXYcoord('spc_dwarf');
+    ship['origin'] = deepClone(ship['xy']);
+    ship['destination'] = deepClone(ship['xy']);
+    ship['transit'] = 0;
+    ship['dist'] = 0;
+    ship['damage'] = 0;
+    ship['fueled'] = false;
+
+    if (ship.name.length === 0){
+        ship.name = getRandomShipName();
+    }
+
+    let num = 1;
+    let name = ship.name;
+    while (global.space.shipyard.ships.filter(s => s.name === name).length > 0){
+        num++;
+        name = ship.name + ` ${num}`;
+    }
+    ship.name = name;
+
+    global.space.shipyard.ships.push(ship);
+    drawShips();
+    updateCosts();
+    if (!queue){
+        global.space.shipyard.blueprint.name = getRandomShipName();
     }
 }
 
@@ -3910,19 +4455,19 @@ function updateCosts(){
 export function shipCrewSize(ship){
     switch (ship.class){
         case 'corvette':
-            return jobScale(2);
+            return global.race['grenadier'] ? jobScale(1) : jobScale(2);
         case 'frigate':
-            return jobScale(3);
+            return global.race['grenadier'] ? jobScale(2) : jobScale(3);
         case 'destroyer':
-            return jobScale(4);
+            return global.race['grenadier'] ? jobScale(3) : jobScale(4);
         case 'cruiser':
-            return jobScale(6);
+            return global.race['grenadier'] ? jobScale(4) : jobScale(6);
         case 'battlecruiser':
-            return jobScale(8);
+            return global.race['grenadier'] ? jobScale(5) : jobScale(8);
         case 'dreadnought':
-            return jobScale(10);
+            return global.race['grenadier'] ? jobScale(6) : jobScale(10);
         case 'explorer':
-            return jobScale(10);
+            return global.race['grenadier'] ? jobScale(6) : jobScale(10);
     }
 }
 
@@ -4056,6 +4601,10 @@ export function shipAttackPower(ship){
         case 'disruptor':
             rating = 156;
             break;
+    }
+
+    if (global.race['wish'] && global.race['wishStats'] && global.race.wishStats.ship){
+        rating = Math.round(rating * 1.25);
     }
 
     switch (ship.class){
@@ -4377,7 +4926,62 @@ function dragShipList(){
     });
 }
 
+const shipyardRanks = {
+    // Lower number -> higher in the auto-sorted list
+    location: {
+        spc_dwarf: 1,
+        spc_moon: 2,
+        spc_red: 3,
+        spc_belt: 4,
+        spc_gas: 5,
+        spc_gas_moon: 6,
+        spc_titan: 7,
+        spc_enceladus: 8,
+        spc_triton: 9,
+        spc_kuiper: 10,
+        spc_eris: 11,
+        tauceti: 12,
+    },
+    class: {
+        corvette: 1,
+        frigate: 2,
+        destroyer: 3,
+        cruiser: 4,
+        battlecruiser: 5,
+        dreadnought: 6,
+        explorer: 7,
+    },
+    engine: {
+        ion: 1,
+        tie: 3,
+        pulse: 2,
+        photon: 4,
+        vacuum: 5,
+        emdrive: 6,
+    },
+    power: {
+        solar: 1,
+        diesel: 2,
+        fission: 3,
+        fusion: 4,
+        elerium: 5,
+    }
+};
+
+function shipyardShipCompare(a,b){
+    return (
+        (shipyardRanks.location[a.location] ?? 0) - (shipyardRanks.location[b.location] ?? 0)
+        || a.transit - b.transit
+        || (shipyardRanks.class[a.class] ?? 0) - (shipyardRanks.class[b.class] ?? 0)
+        || (shipyardRanks.engine[a.engine] ?? 0) - (shipyardRanks.engine[b.engine] ?? 0)
+        || (shipyardRanks.power[a.power] ?? 0) - (shipyardRanks.power[b.power] ?? 0)
+    );
+}
+
 function drawShips(){
+    if (!global.settings.tabLoad && (global.settings.civTabs !== 2 || global.settings.govTabs !== 5)){
+        return;
+    }
     clearShipDrag();
     clearElement($('#shipList'));
 
@@ -4388,8 +4992,7 @@ function drawShips(){
     let list = $('#shipList');
 
     if (global.space.shipyard.sort){
-        let rerank = {spc_dwarf: 'a'};
-        global.space.shipyard.ships = global.space.shipyard.ships.sort((a, b) => (rerank[a.location] ? rerank[a.location] : a.location).localeCompare((rerank[b.location] ? rerank[b.location] : b.location)));
+        global.space.shipyard.ships = global.space.shipyard.ships.sort(shipyardShipCompare);
     }
 
     const spaceRegions = spaceTech();
@@ -4422,7 +5025,7 @@ function drawShips(){
 
         let location = ship.location === 'tauceti' ? loc('tech_era_tauceti') : typeof spaceRegions[ship.location].info.name === 'string' ? spaceRegions[ship.location].info.name : spaceRegions[ship.location].info.name();
 
-        let dispatch = `<b-dropdown id="ship${i}loc" :triggers="['hover']" aria-role="list" scrollable position="is-bottom-left">
+        let dispatch = `<b-dropdown id="ship${i}loc" :triggers="['hover', 'click']" aria-role="list" scrollable position="is-bottom-left">
             <button class="button is-info" slot="trigger">
                 <span>${location}</span>
             </button>${values}
@@ -4607,7 +5210,7 @@ function calcLandingPoint(ship, planet) {
         cross1_days = 0;
     }
     let planet_orbit = spacePlanetStats[planet].orbit === -1
-      ? global.city.calendar.orbit
+      ? orbitLength()
       : spacePlanetStats[planet].orbit;
     let planet_speed = 360 / planet_orbit;
     let planet_degree = (global.space.position[planet] + (cross1_days * planet_speed)) % 360;
@@ -4661,6 +5264,14 @@ export function syndicate(region,extra){
         }
 
         let piracy = global.space.syndicate[region];
+        if (global.race['chicken']){
+            piracy *= 1 + (traits.chicken.vars()[1] / 100);
+            piracy = Math.round(piracy);
+        }
+        if (global.race['ocular_power'] && global.race['ocularPowerConfig'] && global.race.ocularPowerConfig.f){
+            piracy *= 1 - (traits.ocular_power.vars()[1] / 500);
+            piracy = Math.round(piracy);
+        }
         let patrol = 0;
         let sensor = 0;
         let overkill = 0;
@@ -4757,12 +5368,18 @@ export function tritonWar(){
         let defense = armyRating(global.space.fob.troops,'army',wounded);
 
         let died = Math.rand(0,wounded + 1);
-        global.civic.garrison.workers -= died;
-        global.stats.died += died;
+        soldierDeath(died);
         global.civic.garrison.wounded -= died;
 
-        global.space.fob.enemy -= Math.rand(0,defense);
-        if (global.space.fob.enemy < 0){ global.space.fob.enemy = 0; }
+        let kills = Math.min(Math.rand(0,defense),global.space.fob.enemy);
+        global.space.fob.enemy -= kills;
+        if (global.space.fob.enemy < 0){
+            global.space.fob.enemy = 0; 
+        }
+
+        if (global.race['ocular_power'] && global.race['ocularPowerConfig'] && global.race.ocularPowerConfig.p){
+            global.race.ocularPowerConfig.ds += Math.round(kills * traits.ocular_power.vars()[1]);
+        }
 
         let hurt = Math.rand(0,global.space.fob.troops + 1);
         if (hurt > wound_cap){ hurt = wound_cap; }
@@ -4777,8 +5394,8 @@ export function tritonWar(){
         }
 
         global.civic.garrison.wounded += hurt;
-        if (global.civic.garrison.wounded > garrisonSize(false,true)){
-            global.civic.garrison.wounded = garrisonSize(false,true);
+        if (global.civic.garrison.wounded > garrisonSize(false,{nofob: true})){
+            global.civic.garrison.wounded = garrisonSize(false,{nofob: true});
         }
 
         {
@@ -4837,7 +5454,7 @@ export const spacePlanetStats = {
     spc_neptune: { dist: 30.08, orbit: 60152, size: 1 },
     spc_triton: { dist: 30.1, orbit: 60152, size: 0.1, moon: true },
     spc_kuiper: { dist: 39.5, orbit: 90498, size: 0.5, belt: true },
-    spc_eris: { dist: 68, orbit: 204060, size: 0.5, size: 0.5 },
+    spc_eris: { dist: 68, orbit: 204060, size: 0.5 },
     tauceti: { dist: 752568.8, orbit: -2, size: 2 },
 };
 
@@ -4868,7 +5485,7 @@ function transferWindow(p1,p2){
     return Math.ceil(Math.sqrt(((p2.x - p1.x) ** 2) + ((p2.y - p1.y) ** 2)) * 225);
 }
 
-export function tpStorageMultiplier(type,heavy){
+export function tpStorageMultiplier(type,heavy,wiki){
     let multiplier = 1;
     if (global.race['pack_rat']){
         multiplier *= 1 + (traits.pack_rat.vars()[1] / 100);
@@ -4882,8 +5499,9 @@ export function tpStorageMultiplier(type,heavy){
     switch (type){
         case 'storehouse':
         {
-            if (p_on['titan_spaceport']){
-                multiplier *= 1 + (p_on['titan_spaceport'] * 0.25);
+            let titan_spaceport_on = wiki ? (global.space?.titan_spaceport?.on ?? 0) : p_on['titan_spaceport'];
+            if (titan_spaceport_on){
+                multiplier *= 1 + (titan_spaceport_on * 0.25);
             }
             if (heavy && global.tech['shelving']){
                 multiplier *= 2;
@@ -5039,8 +5657,8 @@ export function jumpGateShutdown(){
         }
     }
 
-    global.tauceti['tauceti_casino'] = { count: 0, on: 0 };
-    global.tauceti['tau_housing'] = { count: 0 };
+    initStruct(tauCetiModules.tau_home.tauceti_casino);
+    initStruct(tauCetiModules.tau_home.tau_housing);
     
     let pop = support_on['colony'] * tauCetiModules.tau_home.colony.citizens();
     if (global.resource[global.race.species].amount > pop){ global.resource[global.race.species].amount = pop; }
@@ -5060,7 +5678,6 @@ export function loneSurvivor(){
         global.tech['banking'] = 11;
         global.tech['biotech'] = 1;
         global.tech['boot_camp'] = 2;
-        global.tech['broadcast'] = 2;
         global.tech['container'] = 7;
         global.tech['copper'] = 1;
         global.tech['currency'] = 6;
@@ -5135,7 +5752,6 @@ export function loneSurvivor(){
         global.tech['synthetic_fur'] = 1;
         global.tech['tau_home'] = 6;
         global.tech['tauceti'] = 4;
-        global.tech['theatre'] = 3;
         global.tech['theology'] = 2;
         global.tech['titan'] = 9;
         global.tech['titan_ai_core'] = 3;
@@ -5149,6 +5765,12 @@ export function loneSurvivor(){
         global.tech['wharf'] = 1;
         global.tech['world_control'] = 1;
         global.tech['wsc'] = 0;
+
+        // Note: Joyless cannot be completed in Lone Survivor, and there is no reward for trying.
+        if (!global.race['joyless']){
+            global.tech['theatre'] = 3;
+            global.tech['broadcast'] = 2;
+        }
 
         if (!global.race['flier']){
             global.tech['cement'] = 5;
@@ -5173,8 +5795,10 @@ export function loneSurvivor(){
                 hunting: 0,
                 crafting: 0,
                 total: 0,
-                crafting: 0
             };
+        }
+        if(global.race.universe === 'evil'){
+            global.tech['reclaimer'] = 1;
         }
 
         global.settings.showSpace = false;
@@ -5186,7 +5810,6 @@ export function loneSurvivor(){
         global.settings.showPowerGrid = true;
         global.settings.showResearch = true;
         global.settings.showCivic = true;
-        global.settings.showMil = true;
         global.settings.showResources = true;
         global.settings.showMarket = true;
         global.settings.showStorage = true;
@@ -5196,7 +5819,6 @@ export function loneSurvivor(){
         global.settings.arpa.physics = true;
         global.settings.arpa.genetics = true
 
-        //global.civic.garrison.display = true;
         global.resource[global.race.species].display = true;
         global.resource.Knowledge.display = true;
         global.resource.Money.display = true;
@@ -5266,8 +5888,8 @@ export function loneSurvivor(){
         global.resource.Containers.amount = 1000;
         global.resource.Money.max = 1000000000;
         global.resource.Money.amount = 1000000000;
-        global.resource.Knowledge.max = 8000000;
-        global.resource.Knowledge.amount = 8000000;
+        global.resource.Knowledge.max = 4321200;
+        global.resource.Knowledge.amount = 4321200;
         global.resource.Food.max = 10000;
         global.resource.Food.amount = 10000;
         global.resource.Oil.max = 500000;
@@ -5388,133 +6010,124 @@ export function loneSurvivor(){
         if (global.race['artifical']){
             global.city['transmitter'] = { count: 0, on: 0 };
         }
-        global.city['factory'] = { count: 0, on: 0, Lux: 0, Furs: 0, Alloy: 0, Polymer: 1, Nano: 0, Stanene: 0 };
-        global.city['foundry'] = { count: 0, crafting: 0, Plywood: 0, Brick: 0, Bronze: 0, Wrought_Iron: 0, Sheet_Metal: 0, Mythril: 0, Aerogel: 0, Nanoweave: 0, Scarletite: 0, Quantium: 0 };
-        global.city['smelter'] = { count: 0, cap: 2, Wood: 0, Coal: 0, Oil: 2, Star: 0, StarCap: 0, Inferno: 0, Iron: 1, Steel: 1, Iridium: 0 };
 
-        global.city['amphitheatre'] = { count: 0 };
-        global.city['apartment'] = { count: 0, on: 0 };
-        global.city['bank'] = { count: 0 };
-        global.city['basic_housing'] = { count: 0 };
-        global.city['biolab'] = { count: 0, on: 0 };
-        global.city['boot_camp'] = { count: 0 };
-        global.city['casino'] = { count: 0, on: 0 };
-        global.city['cement_plant'] = { count: 0, on: 0 };
-        global.city['coal_mine'] = { count: 0, on: 0 };
-        global.city['coal_power'] = { count: 0, on: 0 };
-        global.city['cottage'] = { count: 0 };
-        global.city['fission_power'] = { count: 0, on: 0 };
-        global.city['garrison'] = { count: 0, on: 0 };
-        global.city['hospital'] = { count: 0 };
-        global.city['library'] = { count: 0 };
-        global.city['lumber_yard'] = { count: 0 };
-        global.city['mass_driver'] = { count: 0, on: 0 };
-        global.city['metal_refinery'] = { count: 0, on: 0 };
-        global.city['mine'] = { count: 0, on: 0 };
-        global.city['oil_depot'] = { count: 0 };
-        global.city['oil_power'] = { count: 0, on: 0 };
-        global.city['oil_well'] = { count: 0 };
-        global.city['rock_quarry'] = { count: 0, on: 0, asbestos: 50 };
-        global.city['sawmill'] = { count: 0, on: 0 };
-        global.city['shed'] = { count: 0, on: 0 };
-        global.city['storage_yard'] = { count: 0 };
-        global.city['temple'] = { count: 0 };
-        global.city['tourist_center'] = { count: 0, on: 0 };
-        global.city['trade'] = { count: 0 };
-        global.city['university'] = { count: 0 };
-        global.city['wardenclyffe'] = { count: 0, on: 0 };
-        global.city['warehouse'] = { count: 0 };
-        global.city['wharf'] = { count: 0 };
+        initStruct(actions.city.factory);
+        initStruct(actions.city.foundry);
+        initStruct(actions.city.smelter);
 
-        global.space['ai_colonist'] = { count: 0, on: 0 };
+        initStruct(actions.city.amphitheatre);
+        initStruct(actions.city.apartment);
+        initStruct(actions.city.bank);
+        initStruct(actions.city.basic_housing);
+        initStruct(actions.city.biolab);
+        initStruct(actions.city.boot_camp);
+        initStruct(actions.city.casino);
+        initStruct(actions.city.cement_plant);
+        initStruct(actions.city.coal_mine);
+        initStruct(actions.city.coal_power);
+        initStruct(actions.city.cottage);
+        initStruct(actions.city.fission_power);
+        initStruct(actions.city.garrison);
+        initStruct(actions.city.hospital);
+        initStruct(actions.city.library);
+        initStruct(actions.city.lumber_yard);
+        initStruct(actions.city.mass_driver);
+        initStruct(actions.city.metal_refinery);
+        initStruct(actions.city.mine);
+        initStruct(actions.city.oil_depot);
+        initStruct(actions.city.oil_power);
+        initStruct(actions.city.oil_well);
+        initStruct(actions.city.rock_quarry);
+        initStruct(actions.city.sawmill);
+        initStruct(actions.city.shed);
+        initStruct(actions.city.storage_yard);
+        initStruct(actions.city.temple);
+        initStruct(actions.city.tourist_center);
+        initStruct(actions.city.trade);
+        initStruct(actions.city.university);
+        initStruct(actions.city.wardenclyffe);
+        initStruct(actions.city.warehouse);
+        initStruct(actions.city.wharf);
+
+        initStruct(actions.space.spc_belt.elerium_ship);
+        initStruct(actions.space.spc_belt.iridium_ship);
+        initStruct(actions.space.spc_belt.iron_ship);
+        initStruct(actions.space.spc_belt.space_station);
+        initStruct(actions.space.spc_dwarf.e_reactor);
+        initStruct(actions.space.spc_dwarf.elerium_contain);
+        initStruct(actions.space.spc_dwarf.mass_relay); global.space.mass_relay.count = 100;
+        initStruct(actions.space.spc_dwarf.shipyard);
+        initStruct(actions.space.spc_enceladus.munitions_depot);
+        initStruct(actions.space.spc_enceladus.operating_base);
+        initStruct(actions.space.spc_enceladus.water_freighter);
+        initStruct(actions.space.spc_enceladus.zero_g_lab);
+        initStruct(actions.space.spc_eris.digsite);
+        initStruct(actions.space.spc_eris.drone_control);
+        initStruct(actions.space.spc_eris.shock_trooper);
+        initStruct(actions.space.spc_eris.tank);
+        initStruct(actions.space.spc_gas.gas_mining);
+        initStruct(actions.space.spc_gas.gas_storage);
+        initStruct(actions.space.spc_gas_moon.drone);
+        initStruct(actions.space.spc_gas_moon.oil_extractor);
+        initStruct(actions.space.spc_gas_moon.outpost);
+        initStruct(actions.space.spc_hell.geothermal);
+        initStruct(actions.space.spc_hell.hell_smelter);
+        initStruct(actions.space.spc_hell.spc_casino);
+        initStruct(actions.space.spc_hell.swarm_plant);
+        initStruct(actions.space.spc_home.gps);
+        initStruct(actions.space.spc_home.nav_beacon);
+        initStruct(actions.space.spc_home.propellant_depot);
+        initStruct(actions.space.spc_home.satellite);
+        initStruct(actions.space.spc_kuiper.elerium_mine);
+        initStruct(actions.space.spc_kuiper.neutronium_mine);
+        initStruct(actions.space.spc_kuiper.orichalcum_mine);
+        initStruct(actions.space.spc_kuiper.uranium_mine);
+        initStruct(actions.space.spc_moon.helium_mine);
+        initStruct(actions.space.spc_moon.iridium_mine);
+        initStruct(actions.space.spc_moon.moon_base);
+        initStruct(actions.space.spc_moon.observatory);
+        initStruct(actions.space.spc_red.biodome);
+        initStruct(actions.space.spc_red.exotic_lab);
+        initStruct(actions.space.spc_red.fabrication);
+        initStruct(actions.space.spc_red.garage);
+        initStruct(actions.space.spc_red.living_quarters);
+        initStruct(actions.space.spc_red.red_factory);
+        initStruct(actions.space.spc_red.red_mine);
+        initStruct(actions.space.spc_red.red_tower);
+        initStruct(actions.space.spc_red.space_barracks);
+        initStruct(actions.space.spc_red.spaceport);
+        initStruct(actions.space.spc_red.vr_center);
+        initStruct(actions.space.spc_red.ziggurat);
+        initStruct(actions.space.spc_sun.swarm_control);
+        initStruct(actions.space.spc_sun.swarm_satellite);
+        initStruct(actions.space.spc_titan.ai_colonist);
+        initStruct(actions.space.spc_titan.decoder);
+        initStruct(actions.space.spc_titan.electrolysis);
+        initStruct(actions.space.spc_titan.g_factory);
+        initStruct(actions.space.spc_titan.hydrogen_plant);
+        initStruct(actions.space.spc_titan.storehouse);
+        initStruct(actions.space.spc_titan.titan_bank);
+        initStruct(actions.space.spc_titan.titan_mine);
+        initStruct(actions.space.spc_titan.titan_quarters);
+        initStruct(actions.space.spc_titan.titan_spaceport);
+        initStruct(actions.space.spc_triton.crashed_ship); global.space.crashed_ship.count = 100;
+        initStruct(actions.space.spc_triton.fob);
+        initStruct(actions.space.spc_triton.lander);
+
+        initStruct(actions.tauceti.tau_gas.refueling_station);
+        initStruct(actions.tauceti.tau_home.alien_outpost); global.tauceti.alien_outpost.count = 1; global.tauceti.alien_outpost.on = 1;
+        initStruct(actions.tauceti.tau_home.colony); global.tauceti.colony.count = 1; global.tauceti.colony.on = 1;
+        initStruct(actions.tauceti.tau_home.fusion_generator); global.tauceti.fusion_generator.count = 1; global.tauceti.fusion_generator.on = 1;
+        initStruct(actions.tauceti.tau_home.infectious_disease_lab);
+        initStruct(actions.tauceti.tau_home.mining_pit); global.tauceti.mining_pit.count = 1; global.tauceti.mining_pit.on = 1;
+        initStruct(actions.tauceti.tau_home.orbital_station); global.tauceti.orbital_station.count = 1; global.tauceti.orbital_station.on = 1;
+        initStruct(actions.tauceti.tau_home.repository); global.tauceti.repository.count = 2;
+        initStruct(actions.tauceti.tau_home.tauceti_casino);
+        initStruct(actions.tauceti.tau_red.orbital_platform);
+
         global.space['ai_core'] = { count: 100 };
         global.space['ai_core2'] = { count: 0, on: 0 };
-        global.space['biodome'] = { count: 0, on: 0 };
-        global.space['crashed_ship'] = { count: 100 };
-        global.space['decoder'] = { count: 0, on: 0 };
-        global.space['digsite'] = { count: 0 };
-        global.space['drone'] = { count: 0 };
-        global.space['drone_control'] = { count: 0, on: 0 };
-        global.space['e_reactor'] = { count: 0, on: 0 };
-        global.space['electrolysis'] = { count: 0, on: 0, support: 0, s_max: 0 };
-        global.space['elerium_contain'] = { count: 0, on: 0 };
-        global.space['elerium_mine'] = { count: 0, on: 0 };
-        global.space['elerium_ship'] = { count: 0, on: 0 };
-        global.space['exotic_lab'] = { count: 0, on: 0 };
-        global.space['fabrication'] = { count: 0, on: 0 };
-        global.space['fob'] = { count: 0, on: 0, troops: 0, enemy: 0 };
-        global.space['g_factory'] = { count: 0, on: 0, Lumber: 0, Coal: 0, Oil: 0 };
-        global.space['garage'] = { count: 0 };
-        global.space['gas_mining'] = { count: 0, on: 0 };
-        global.space['gas_storage'] = { count: 0 };
-        global.space['geothermal'] = { count: 0, on: 0 };
-        global.space['gps'] = { count: 0 };
-        global.space['helium_mine'] = { count: 0, on: 0 };
-        global.space['hell_smelter'] = { count: 0, on: 0 };
-        global.space['hydrogen_plant'] = { count: 0, on: 0 };
-        global.space['iridium_mine'] = { count: 0, on: 0 };
-        global.space['iridium_ship'] = { count: 0, on: 0 };
-        global.space['iron_ship'] = { count: 0, on: 0 };
-        global.space['lander'] = { count: 0, on: 0 };
-        global.space['living_quarters'] = { count: 0, on: 0 };
         global.space['m_relay'] = { count: 0, on: 0 };
-        global.space['mass_relay'] = { count: 100 };
-        global.space['moon_base'] = { count: 0, on: 0, support: 0, s_max: 0 };
-        global.space['munitions_depot'] = { count: 0 };
-        global.space['nav_beacon'] = { count: 0, on: 0 };
-        global.space['neutronium_mine'] = { count: 0, on: 0 };
-        global.space['observatory'] = { count: 0, on: 0 };
-        global.space['oil_extractor'] = { count: 0, on: 0 };
-        global.space['operating_base'] = { count: 0, on: 0 };
-        global.space['orichalcum_mine'] = { count: 0, on: 0 };
-        global.space['outpost'] = { count: 0, on: 0 };
-        global.space['propellant_depot'] = { count: 0 };
-        global.space['red_factory'] = { count: 0, on: 0 };
-        global.space['red_mine'] = { count: 0, on: 0 };
-        global.space['red_tower'] = { count: 0, on: 0 };
-        global.space['satellite'] = { count: 0 };
-        global.space['shipyard'] = { count: 0, on: 0, ships: [], expand: false, sort: true };
-        global.space['shock_trooper'] = { count: 0, on: 0 };
-        global.space['space_barracks'] = { count: 0, on: 0 };
-        global.space['space_station'] = { count: 0, on: 0, support: 0, s_max: 0 };
-        global.space['spaceport'] = { count: 0, on: 0, support: 0, s_max: 0 };
-        global.space['spc_casino'] = { count: 0, on: 0 };
-        global.space['storehouse'] = { count: 0 };
-        global.space['swarm_control'] = { count: 0, support: 0, s_max: 0 };
-        global.space['swarm_plant'] = { count: 0 };
-        global.space['swarm_satellite'] = { count: 0 };
-        global.space['tank'] = { count: 0, on: 0 };
-        global.space['titan_bank'] = { count: 0 };
-        global.space['titan_mine'] = { count: 0, on: 0 };
-        global.space['titan_quarters'] = { count: 0, on: 0 };
-        global.space['titan_spaceport'] = { count: 0, on: 0, support: 0, s_max: 0 };
-        global.space['uranium_mine'] = { count: 0, on: 0 };
-        global.space['vr_center'] = { count: 0, on: 0 };
-        global.space['water_freighter'] = { count: 0, on: 0 };
-        global.space['zero_g_lab'] = { count: 0, on: 0 };
-        global.space['ziggurat'] = { count: 0 };
-
-        global.tauceti['alien_outpost'] = { count: 1, on: 1 };
-        global.tauceti['colony'] = { count: 1, on: 1 };
-        global.tauceti['fusion_generator'] = { count: 1, on: 1 };
-        global.tauceti['infectious_disease_lab'] = { count : 0, on: 0, cure: 0 };
-        global.tauceti['mining_pit'] = { count: 1, on: 1 };
-        global.tauceti['orbital_platform'] = { count: 0, on: 0, support: 0, s_max: 0 };
-        global.tauceti['orbital_station'] = { count: 1, on: 1, support: 0, s_max: 0 };
-        global.tauceti['refueling_station'] = { count: 0, on: 0 };
-        global.tauceti['repository'] = { count: 2 };
-        global.tauceti['tauceti_casino'] = { count: 0, on: 0 };
-
-        global.civic['garrison'] = {
-            display: true,
-            disabled: false,
-            progress: 0,
-            tactic: 0,
-            workers: 2,
-            wounded: 0,
-            raid: 0,
-            max: 2
-        };
 
         global.arpa['sequence'] = {
             max: 50000,
@@ -5542,16 +6155,20 @@ export function loneSurvivor(){
     }
 }
 
-export function calcAIDrift(){
+export function calcAIDrift(wiki){
     let drift = 0;
-    if (p_on['ai_colonist'] && support_on['decoder']){
-        drift += p_on['ai_colonist'] * support_on['decoder'] * 0.35;
+    let ai_colonist_on = wiki ? global.space.ai_colonist.on : p_on['ai_colonist'];
+    let decoder_on = wiki ? global.space.decoder.on : support_on['decoder'];
+    let shock_trooper_on = wiki ? global.space.shock_trooper.on : support_on['shock_trooper'];
+    let tank_on = wiki ? global.space.tank.on : support_on['tank'];
+    if (ai_colonist_on && decoder_on){
+        drift += ai_colonist_on * decoder_on * 0.35;
     }
-    if (support_on['shock_trooper']){
-        drift += support_on['shock_trooper'] * 2;
+    if (shock_trooper_on){
+        drift += shock_trooper_on * 2;
     }
-    if (support_on['tank']){
-        drift += support_on['tank'] * 2;
+    if (tank_on){
+        drift += tank_on * 2;
     }
     if (drift > 100){
         drift = 100;

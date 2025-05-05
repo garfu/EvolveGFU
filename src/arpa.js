@@ -1,10 +1,11 @@
-import { global, keyMultiplier, sizeApproximation, srSpeak } from './vars.js';
-import { clearElement, popover, clearPopper, flib, fibonacci, eventActive, timeFormat, vBind, messageQueue, adjustCosts, calcQueueMax, calcRQueueMax, buildQueue, calcPrestige, calc_mastery, darkEffect, easterEgg, getTraitDesc, removeFromQueue, arpaTimeCheck, deepClone } from './functions.js';
-import { actions, updateQueueNames, drawTech, drawCity, addAction, removeAction, wardenLabel, checkCosts } from './actions.js';
-import { races, traits, cleanAddTrait, cleanRemoveTrait, traitSkin, fathomCheck } from './races.js';
+import { global, keyMultiplier, sizeApproximation, srSpeak, p_on, support_on } from './vars.js';
+import { clearElement, popover, clearPopper, flib, fibonacci, eventActive, timeFormat, vBind, messageQueue, adjustCosts, calcQueueMax, calcRQueueMax, buildQueue, calcPrestige, calc_mastery, darkEffect, easterEgg, trickOrTreat, getTraitDesc, removeFromQueue, arpaTimeCheck, deepClone } from './functions.js';
+import { actions, updateQueueNames, drawTech, drawCity, addAction, removeAction, wardenLabel, checkCosts, structName } from './actions.js';
+import { races, traits, cleanAddTrait, cleanRemoveTrait, combineTraits, traitSkin, fathomCheck, planetTraits, setTraitRank, traitRank } from './races.js';
 import { renderSpace } from './space.js';
 import { drawMechLab } from './portal.js';
 import { govActive, defineGovernor } from './governor.js';
+import { highPopAdjust } from './prod.js';
 import { unlockFeat } from './achieve.js';
 import { loc } from './locale.js';
 
@@ -45,7 +46,10 @@ export const arpaProjects = {
             }
             let sc = global.tech['tp_particles'] || (global.tech['particles'] && global.tech['particles'] >= 3) ? (global.race['cataclysm'] ? 20 : 8) : (global.race['cataclysm'] ? 10 : 4);
             if (global.tech['storage'] >= 6){
-                if (global.tech['particles'] && global.tech['particles'] >= 4){
+                if (global.race['warlord']){
+                    return loc('arpa_projects_lhc_warlord2',[loc('portal_twisted_lab_title'),sc,5]);
+                }
+                else if (global.tech['particles'] && global.tech['particles'] >= 4){
                     return global.race['cataclysm'] ? loc('arpa_projects_lhc_cataclysm3',[sc]) : loc('arpa_projects_lhc_effect3',[sc,global.race['orbit_decayed'] ? loc('space_home_satellite_title') : wardenLabel()]);
                 }
                 else {
@@ -53,7 +57,12 @@ export const arpaProjects = {
                 }
             }
             else {
-                return global.race['cataclysm'] ? loc('arpa_projects_lhc_cataclysm1',[sc]) : global.tech['isolation'] ? loc('arpa_projects_lhc_iso1',[sc,loc('tech_infectious_disease_lab_alt')]) : (loc('arpa_projects_lhc_effect1',[sc,global.race['orbit_decayed'] ? loc('space_home_satellite_title') : wardenLabel()]));
+                if (global.race['warlord']){
+                    return loc('arpa_projects_lhc_warlord1',[loc('portal_twisted_lab_title'),sc]);
+                }
+                else {
+                    return global.race['cataclysm'] ? loc('arpa_projects_lhc_cataclysm1',[sc]) : global.tech['isolation'] ? loc('arpa_projects_lhc_iso1',[sc,loc('tech_infectious_disease_lab_alt')]) : (loc('arpa_projects_lhc_effect1',[sc,global.race['orbit_decayed'] ? loc('space_home_satellite_title') : wardenLabel()]));
+                }
             }
         },
         cost: {
@@ -72,16 +81,23 @@ export const arpaProjects = {
         reqs: { banking: 9 },
         grant: 'stock_exchange',
         effect(){
-            if (global.tech['banking'] >= 10){
+            if (global.race['warlord']){
+                return loc('arpa_projects_stock_exchange_warlord',[structName('casino'),5,1]);
+            }
+            else if (global.tech['banking'] >= 10){
                 if (global.race['cataclysm']){
-                    return global.tech['gambling'] && global.tech['gambling'] >= 4 ? loc('arpa_projects_stock_exchange_cataclysm2') : loc('arpa_projects_stock_exchange_cataclysm1');
+                    return global.tech['gambling'] && global.tech['gambling'] >= 4 
+                    ? loc('arpa_projects_stock_exchange_cataclysm2',[loc('space_red_spaceport_title'),10,structName('casino'),5,1]) 
+                    : loc('arpa_projects_stock_exchange_cataclysm1',[loc('space_red_spaceport_title'),10]);
                 }
                 else {
-                    return global.tech['gambling'] && global.tech['gambling'] >= 4 ? loc('arpa_projects_stock_exchange_effect3') : loc('arpa_projects_stock_exchange_effect2');
+                    return global.tech['gambling'] && global.tech['gambling'] >= 4 
+                        ? loc('arpa_projects_stock_exchange_effect3',[loc('city_bank'),10,loc(`job_banker`),2,structName('casino'),5,1]) 
+                        : loc('arpa_projects_stock_exchange_effect2',[loc('city_bank'),10,loc(`job_banker`),2]);
                 }
             }
             else {
-                return loc('arpa_projects_stock_exchange_effect1');
+                return loc('arpa_projects_stock_exchange_effect1',[loc('city_bank'),10]);
             }
         },
         cost: {
@@ -113,7 +129,7 @@ export const arpaProjects = {
         desc: loc('arpa_projects_launch_facility_desc'),
         reqs: { high_tech: 7 },
         condition(){
-            return global.race['cataclysm'] || global.race['lone_survivor'] ? false : true;
+            return global.race['cataclysm'] || global.race['lone_survivor'] || global.race['warlord'] ? false : true;
         },
         grant: 'launch_facility',
         rank: 1,
@@ -178,14 +194,23 @@ export const arpaProjects = {
             }
             let routes = global.stats.achieve['banana'] && global.stats.achieve.banana.l >= 2 ? 1 : 0;
             let profit = global.stats.achieve['banana'] && global.stats.achieve.banana.l >= 1 ? 3 : 2;
+            let desc = '';
             if (global.race['cataclysm'] || global.race['orbit_decayed']){
                 routes += global.space['gps'] ? Math.floor(global.space.gps.count / 3) : 0;
-                return loc('arpa_projects_railway_cataclysm1',[routes,profit,3,1]);
+                desc = loc('arpa_projects_railway_cataclysm1',[routes,profit,3,1]);
+            }
+            else if (global.race['warlord']){
+                routes += 5;
+                desc = loc('arpa_projects_railway_warlord1',[routes,profit]);
             }
             else {
                 routes += global.city['storage_yard'] ? Math.floor(global.city.storage_yard.count / 6) : 0;
-                return loc('arpa_projects_railway_effect1',[routes,profit,6,1]);
+                desc = loc('arpa_projects_railway_effect1',[routes,profit,6,1]);
             }
+            if (global.tech['hell_lake'] && global.tech.hell_lake >= 7){
+                desc += ` ${loc('arpa_projects_railway_highway',[1,global.resource.Asphodel_Powder.name,loc('eden_asphodel_harvester_title'),1])}`;
+            }
+            return desc;
         },
         cost: {
             Money(offset,wiki){ return costMultiplier('railway', offset, 2500000, 1.08, wiki); },
@@ -221,7 +246,7 @@ export const arpaProjects = {
         grant: 'nexus',
         effect(){
             if (global.tech['roguemagic'] && global.tech.roguemagic >= 7){
-                return `<div>${loc('arpa_projects_nexus_effect1',[5])}</div><div>${loc('witch_hunter_nexus',[8])}</div>`;
+                return `<div>${loc('arpa_projects_nexus_effect1',[5])}</div><div>${loc('witch_hunter_nexus',[4])}</div>`;
             }
             return loc('arpa_projects_nexus_effect1',[5]);
         },
@@ -609,7 +634,7 @@ export const genePool = {
         grant: ['plasma',2],
         cost: { Plasmid(){ return 165; } },
         action(){
-            if (payCrispr('mitosis')){
+            if (payCrispr('metaphase')){
                 return true;
             }
             return false;
@@ -814,6 +839,29 @@ export const genePool = {
             defineGovernor();
         }
     },
+    bureaucratic_efficiency: {
+        id: 'genes-bureaucratic_efficiency',
+        title: loc('arpa_genepool_bureaucratic_efficiency_title'),
+        desc: loc('arpa_genepool_bureaucratic_efficiency_desc'),
+        reqs: { governor: 2 },
+        grant: ['governor',3],
+        cost: {
+            Plasmid(){ return 2500; },
+            Artifact(){ return 1; }
+        },
+        action(){
+            if (payCrispr('bureaucratic_efficiency')){
+                return true;
+            }
+            return false;
+        },
+        post(){
+            defineGovernor();
+        },
+        flair(){
+            return loc('arpa_genepool_bureaucratic_efficiency_flair');
+        }
+    },
     hardened_genes: {
         id: 'genes-hardened_genes',
         title: loc('arpa_genepool_hardened_genes_title'),
@@ -915,6 +963,25 @@ export const genePool = {
             return false;
         }
     },
+    haggler: {
+        id: 'genes-haggler',
+        title: loc('arpa_genepool_haggler_title'),
+        desc: loc('arpa_genepool_haggler_desc'),
+        reqs: {trader:1},
+        condition(){
+            return global.stats.achieve['godslayer'] ? true : false;
+        },
+        grant: ['trader',2],
+        cost: { Supercoiled(){ return 10; } },
+        action(){
+            if (payCrispr('haggler')){
+                global.genes['trader'] = 2;
+                updateTrades();
+                return true;
+            }
+            return false;
+        }
+    },
     ancients: {
         id: 'genes-ancients',
         title: loc('arpa_genepool_ancients_title'),
@@ -991,6 +1058,37 @@ export const genePool = {
             return false;
         }
     },
+    doctrine: {
+        id: 'genes-doctrine',
+        title: loc('arpa_genepool_doctrine_title'),
+        desc: loc('arpa_genepool_doctrine_desc'),
+        reqs: { ancients: 5 },
+        condition(){
+            return global.stats.achieve['godslayer'] ? true : false;
+        },
+        grant: ['ancients',6],
+        cost: { Supercoiled(){ return 50; } },
+        action(){
+            if (payCrispr('doctrine')){
+                return true;
+            }
+            return false;
+        }
+    },
+    ideology: {
+        id: 'genes-ideology',
+        title: loc('arpa_genepool_ideology_title'),
+        desc: loc('arpa_genepool_ideology_desc'),
+        reqs: { ancients: 6 },
+        grant: ['ancients',7],
+        cost: { Supercoiled(){ return 75; } },
+        action(){
+            if (payCrispr('ideology')){
+                return true;
+            }
+            return false;
+        }
+    },
     transcendence: {
         id: 'genes-transcendence',
         title: loc('arpa_genepool_transcendence_title'),
@@ -1007,20 +1105,23 @@ export const genePool = {
             return false;
         }
     },
-    /*preeminence: {
+    preeminence: {
         id: 'genes-preeminence',
         title: loc('arpa_genepool_preeminence_title'),
         desc: loc('arpa_genepool_preeminence_desc'),
-        reqs: {transcendence: 1, challenge:3},
+        reqs: { transcendence: 1, challenge:5, ancients: 7 },
         grant: ['transcendence',2],
-        cost: { Plasmid(){ return 4200; } },
+        cost: { 
+            Supercoiled(){ return 250; },
+            Harmony(){ return 10; },
+        },
         action(){
             if (payCrispr('preeminence')){
                 return true;
             }
             return false;
         }
-    },*/
+    },
     bleeding_effect: {
         id: 'genes-bleeding_effect',
         title: loc('arpa_genepool_bleeding_effect_title'),
@@ -1609,13 +1710,15 @@ export function arpaAdjustCosts(costs,offset,wiki){
 }
 
 function creativeAdjust(costs,offset,wiki){
-    if ((wiki && wiki.creative) || (!wiki && global.race['creative'])){
+    let fathom = fathomCheck('human');
+    if ((wiki && wiki.creative) || (!wiki && global.race['creative']) || (!wiki && fathom > 0)){
         var newCosts = {};
-        let fathom = fathomCheck('human');
         Object.keys(costs).forEach(function (res){
             newCosts[res] = function(){
                 let cost = costs[res](offset, wiki);
-                cost *= (1 - traits.creative.vars()[1] / 100);
+                if((wiki && wiki.creative) || (!wiki && global.race['creative'])){
+                    cost *= (1 - traits.creative.vars()[1] / 100);
+                }
                 if (fathom > 0){
                     cost *= 1 - (traits.creative.vars(1)[1] / 100 * fathom);
                 }
@@ -1627,15 +1730,15 @@ function creativeAdjust(costs,offset,wiki){
     return costs;
 }
 
-function costMultiplier(project,offset,base,mutiplier,wiki){
+function costMultiplier(project,offset,base,multiplier,wiki){
     var rank = global.arpa[project] ? global.arpa[project].rank : 0;
     if (((wiki && wiki.creative) || (!wiki && global.race['creative'])) && project !== 'syphon'){
-        mutiplier -= traits.creative.vars()[0];
+        multiplier -= traits.creative.vars()[0];
     }
     if (offset){
         rank += offset;
     }
-    return Math.round((mutiplier ** rank) * base);
+    return Math.round((multiplier ** rank) * base);
 }
 
 function physics(){
@@ -1755,13 +1858,16 @@ function genetics(){
                 },
                 novo(){
                     let keyMult = keyMultiplier();
-                    for (let i=0; i<keyMult; i++){
-                        if (global.resource.Knowledge.amount >= 200000){
-                            global.resource.Knowledge.amount -= 200000;
-                            global.resource.Genes.amount++;
-                        }
-                        else {
-                            break;
+                    let cost = 200000;
+                    if (global.resource.Knowledge.amount >= cost){
+                        let maxNovo = Math.floor(global.resource.Knowledge.amount / cost);
+                        let actualNovo = Math.min(keyMult, maxNovo);
+                        global.resource.Knowledge.amount -= cost * actualNovo;
+                        global.resource.Genes.amount += actualNovo;
+
+                        let trick = trickOrTreat(8,12,false);
+                        if (trick.length > 0){
+                            $(`#arpaSequence > div:first`).append(trick);
                         }
                     }
                 },
@@ -1858,7 +1964,7 @@ function genetics(){
             }
         });
 
-        breakdown.append(`<div class="trait major has-text-success">${loc('arpa_race_genetic_traids',[flib('name')])}</div>`)
+        breakdown.append(`<div class="trait major has-text-success" role="heading" aria-level="3">${loc('arpa_race_genetic_traids',[flib('name')])}</div>`)
 
         let traitName = traitSkin('name');
 
@@ -1872,14 +1978,24 @@ function genetics(){
         }
         Object.keys(trait_listing).forEach(function (trait){
             if (traits[trait] && traits[trait].type !== 'minor' && traits[trait].type !== 'special' && trait !== 'evil' && trait !== 'soul_eater' && trait !== 'artifical'){
+                let mimicTraits = [
+                    ...(global.race['ss_traits'] ? global.race['ss_traits'] : []),
+                    ...(global.race['iTraits'] ? Object.keys(global.race['iTraits']) : [])
+                ];
                 let readOnly = false;
-                if ((global.race['ss_traits'] && global.race.ss_traits.includes(trait)) || (global.race['iTraits'] && global.race.iTraits.hasOwnProperty(trait))){
+                if (mimicTraits.includes(trait)){
                     readOnly = true;
                 }
-                else if (global.race.species === 'sludge' && (trait === 'ooze' || global.race['modified'])){
+                else if (['sludge','ultra_sludge'].includes(global.race.species) && (trait === 'ooze' || global.race['modified'])){
                     readOnly = true;
                 }
                 else if (!global.race.hasOwnProperty(trait)){
+                    readOnly = true;
+                }
+                else if (global.race.hasOwnProperty('absorbed') && global.race.absorbed.map(r => races[r].fanaticism).includes(trait) || global.race['warlord'] && ['iron_wood','unified','apex_predator'].includes(trait)){
+                    readOnly = true;
+                }
+                else if(trait === 'forager' && mimicTraits.some(item => ['herbivore', 'carnivore'].includes(item))){
                     readOnly = true;
                 }
                 if (!readOnly && ((traits[trait].type === 'major' && global.genes['mutation']) || (traits[trait].type === 'genus' && global.genes['mutation'] && global.genes['mutation'] >= 2))){
@@ -1888,30 +2004,38 @@ function genetics(){
                     remove_list.push(trait);
 
                     major.append(purge);
-                    major.append($(`<span class="trait has-text-warning" id="raceTrait${trait}">${traitName[trait] ? traitName[trait] : traits[trait].name} (${loc(`arpa_genepool_rank`,[trait_listing[trait]])})</span>`));
+                    major.append($(`<span class="trait has-text-warning" id="raceTrait${trait}">${traitName[trait] ? traitName[trait] : traits[trait].name} (${loc(`arpa_genepool_rank`,[traitRank(trait)])})</span>`));
 
                     traitListing.append(major);
                 }
                 else {
                     null_list.push(trait);
-                    traitListing.append(`<div class="traitRow trait${trait}"><div class="trait has-text-warning${global.genes['mutation'] ? ' indent' : ''}">${traitName[trait] ? traitName[trait] : traits[trait].name} (${loc(`arpa_genepool_rank`,[trait_listing[trait]])})</div></div>`);
+                    traitListing.append(`<div class="traitRow trait${trait}"><div class="trait has-text-warning${global.genes['mutation'] ? ' indent' : ''}">${traitName[trait] ? traitName[trait] : traits[trait].name} (${loc(`arpa_genepool_rank`,[traitRank(trait)])})</div></div>`);
                 }
             }
         });
 
+        let offspec_traits = [];
         let trait_list = [];
         if (global.genes['mutation'] && global.genes['mutation'] >= 3){
-            if (global.race.species !== 'sludge' || !global.race['modified']){
-                breakdown.append(`<div class="trait major has-text-success">${loc('arpa_race_genetic_gain')}</div>`)
+            if (global.race.species !== 'hellspawn' && ((global.race.species !== 'sludge' && global.race.species !== 'ultra_sludge') || !global.race['modified'])){
+                breakdown.append(`<div class="trait major has-text-success" role="heading" aria-level="3">${loc('arpa_race_genetic_gain')}</div>`);
 
                 let conflict_traits = ['dumb','smart']; //Conflicting traits are paired together
+                let mainType = races[global.race.species].type === 'hybrid' ? global.race.maintype : races[global.race.species].type
+                let speciesTypes = races[global.race.species].type === 'hybrid' ? races[global.race.species].hybrid : [races[global.race.species].type];
                 Object.keys(races).forEach(function (race){
-                    if (race !== 'junker' && race !== 'sludge' && race !== 'custom' && races[race].type === races[global.race.species].type){
+                    if (race !== 'junker' && race !== 'sludge' && race !== 'ultra_sludge' && race !== 'custom' && 
+                        (speciesTypes.includes(races[race].type) || (races[race].type === 'hybrid' && race === global.race.species))
+                    ){
                         Object.keys(races[race].traits).forEach(function (trait){
                             if (!global.race[trait] && trait !== 'soul_eater'){
                                 let conflict_pos = conflict_traits.indexOf(trait);
                                 if (conflict_pos === -1){
                                     trait_list.push(trait);
+                                    if (races[race].type !== mainType && race !== global.race.species){
+                                        offspec_traits.push(trait);
+                                    }
                                 }
                                 else {
                                     let is_conflict = false;
@@ -1929,6 +2053,9 @@ function genetics(){
                                     }
                                     if (!is_conflict) {
                                         trait_list.push(trait);
+                                        if (races[race].type !== mainType){
+                                            offspec_traits.push(trait);
+                                        }
                                     }
                                 }
                             }
@@ -1944,7 +2071,7 @@ function genetics(){
                     let add = $(`<span class="add${trait} basic-button has-text-success" role="button" :aria-label="addCost('${trait}')" @click="gain('${trait}')">${loc('arpa_gain_button')}</span>`);
 
                     major.append(add);
-                    major.append($(`<span class="trait has-text-warning" id="raceTrait${trait}">${traitName[trait] ? traitName[trait] : traits[trait].name}</span>`));
+                    major.append($(`<span class="trait has-text-warning" id="raceTrait${trait}">${traitName[trait] ? traitName[trait] : traits[trait].name} (${loc(`arpa_genepool_rank`,[offspec_traits[trait] ? 0.5 : 1])})</span>`));
 
                     addListing.append(major);
                 }
@@ -1952,13 +2079,16 @@ function genetics(){
         }
 
         if (minor){
-            breakdown.prepend(`<div class="trait minor has-text-success">${loc('arpa_race_genetic_minor_traits',[flib('name')])}</div>`)
+            breakdown.prepend(`<div class="trait minor has-text-success" role="heading" aria-level="3">${loc('arpa_race_genetic_minor_traits',[flib('name')])}</div>`)
         }
 
         let rmCost = function(t){
             let cost = traits[t].val * 5;
-            if (global.race.species === 'custom' || global.race.species === 'sludge'){
+            if (['custom','hybrid','sludge','ultra_sludge'].includes(global.race.species)){
                 cost *= 10;
+            }
+            if (races[global.race.species].type === 'hybrid'){
+                cost *= 2;
             }
             if (cost < 0){
                 cost *= -1;
@@ -1968,8 +2098,11 @@ function genetics(){
 
         let addCost = function(t){
             let cost = traits[t].val * 5;
-            if (global.race.species === 'custom' || global.race.species === 'sludge'){
+            if (['custom','hybrid','sludge','ultra_sludge'].includes(global.race.species)){
                 cost *= 10;
+            }
+            if (races[global.race.species].type === 'hybrid'){
+                cost *= 2;
             }
             if (cost < 0){
                 cost *= -1;
@@ -2058,12 +2191,15 @@ function genetics(){
                     }
                 },
                 purge(t){
-                    if (global.race.species === 'sludge' && (global.race['modified'] || t === 'ooze')){
+                    if (['sludge','ultra_sludge'].includes(global.race.species) && (global.race['modified'] || t === 'ooze')){
                         return;
                     }
                     let cost = traits[t].val * 5;
-                    if (global.race.species === 'custom' || global.race.species === 'sludge'){
+                    if (['custom','hybrid','sludge','ultra_sludge'].includes(global.race.species)){
                         cost *= 10;
+                    }
+                    if (races[global.race.species].type === 'hybrid'){
+                        cost *= 2;
                     }
                     if (cost < 0){
                         cost *= -1;
@@ -2078,6 +2214,10 @@ function genetics(){
                         }
                         else {
                             global.race['modified']++;
+                        }
+                        if(t === 'forager'){
+                            delete global.race.inactiveTraits['herbivore'];
+                            delete global.race.inactiveTraits['carnivore'];
                         }
                         cleanRemoveTrait(t,rank);
                         genetics();
@@ -2096,15 +2236,16 @@ function genetics(){
                     }
                 },
                 gain(t){
-                    if (global.race.species === 'sludge' && global.race['modified']){
+                    if (['hellspawn'].includes(global.race.species)){ return; }
+                    else if (['sludge','ultra_sludge'].includes(global.race.species) && global.race['modified']){
                         return;
                     }
                     let cost = traits[t].val * 5;
-                    if (global.race.species === 'sludge'){
-                        cost *= 2;
-                    }
-                    if (global.race.species === 'custom'){
+                    if (['custom','hybrid','sludge','ultra_sludge'].includes(global.race.species)){
                         cost *= 10;
+                    }
+                    if (races[global.race.species].type === 'hybrid'){
+                        cost *= 2;
                     }
                     if (cost < 0){
                         cost *= -1;
@@ -2120,9 +2261,13 @@ function genetics(){
                             global.race['modified']++;
                         }
                         cleanAddTrait(t);
+                        if (offspec_traits.includes(t)){
+                            setTraitRank(t, {down:true});
+                        }
                         genetics();
                         drawTech();
                         drawCity();
+                        combineTraits();
                     }
                 },
                 geneCost(t){
@@ -2197,14 +2342,14 @@ function genetics(){
 
             let id = `raceTrait${t}`;
             let desc = $(`<div></div>`);
-            getTraitDesc(desc, t, { trank: global.race[t] });
+            getTraitDesc(desc, t, { trank: traitRank(t) });
             popover(id,desc,{ wide: true, classes: 'w30' });
         });
 
         null_list.forEach(function (t){
             let id = `raceTrait${t}`;
             let desc = $(`<div></div>`);
-            getTraitDesc(desc, t, { trank: global.race[t] });
+            getTraitDesc(desc, t, { trank: traitRank(t) });
             popover(id, desc, { elm: `#geneticBreakdown .trait${t}`, wide: true, classes: 'w30' });
         });
 
@@ -2219,7 +2364,7 @@ function genetics(){
 
             let id = `raceTrait${t}`;
             let desc = $(`<div></div>`);
-            getTraitDesc(desc, t, { trank: global.race[t] });
+            getTraitDesc(desc, t, { trank: offspec_traits.includes(t) ? 0.5 : 1 });
             popover(id,desc,{ wide: true, classes: 'w30' });
         });
 
@@ -2227,9 +2372,22 @@ function genetics(){
     }
 }
 
+export function sequenceLabs(){
+    let labs = global.race['cataclysm'] || global.race['orbit_decayed'] ? support_on['exotic_lab'] : (global.race['warlord'] ? p_on['twisted_lab'] : p_on['biolab']);
+    if (global.tech['isolation']){ labs = support_on['infectious_disease_lab'] * 5; }
+    if (global.race['lone_survivor']){ labs += 2; }
+    if (labs > 0 && global.city.ptrait.includes('toxic')){
+        labs += planetTraits.toxic.vars()[0];
+    }
+    if (labs > 0 && global.race['elemental'] && traits.elemental.vars()[0] === 'frost'){
+        labs *= 1 + highPopAdjust(global.resource[global.race.species].amount * traits.elemental.vars()[4] / 100);
+    }
+    return Math.round(labs);
+}
+
 function bindTrait(breakdown,trait){
     let m_trait = $(`<div class="trait t-${trait} traitRow"></div>`);
-    let gene = $(`<span v-bind:class="['basic-button', 'gene', 'gbuy', genePurchasable('${trait}') ? '' : 'has-text-fade']" role="button" :aria-label="geneCost('${trait}')" @click="gene('${trait}')">${global.resource.Genes.name} (${global.race.minor[trait] || 0})</span>`);
+    let gene = $(`<h4 class="is-sr-only">${trait}</h4><span v-bind:class="['basic-button', 'gene', 'gbuy', genePurchasable('${trait}') ? '' : 'has-text-fade']" role="button" :aria-label="geneCost('${trait}')" @click="gene('${trait}')">${global.resource.Genes.name} (${global.race.minor[trait] || 0})</span>`);
     m_trait.append(gene);
     if (global.prestige.Phage.count > 0){
         let phage = $(`<span v-bind:class="['basic-button', 'gene', 'pbuy', phagePurchasable('${trait}') ? '' : 'has-text-fade']" role="button" :aria-label="phageCost('${trait}')" @click="phage('${trait}')">${loc('resource_Phage_name')} (${global.genes.minor[trait] || 0})</span>`);
@@ -2275,7 +2433,7 @@ function addProject(parent,project){
         parent.append(current);
 
         let title = typeof arpaProjects[project].title === 'string' ? arpaProjects[project].title : arpaProjects[project].title();
-        let head = $(`<div class="head"><span aria-hidden="true" class="desc has-text-warning">${title}</span><a v-on:click="srDesc" class="is-sr-only">${title}</a><span aria-hidden="true" v-show="rank" class="rank">{{ rank | level }}</span><a v-on:click="srLevel" class="is-sr-only">{{ rank | level }}</a></div>`);
+        let head = $(`<div class="head"><span class="desc has-text-warning" role="heading" aria-level="3">${title}</span><a v-on:click="srDescAndEffect" class="is-sr-only" role="button">${title} description</a><span aria-hidden="true" v-show="rank" class="rank">{{ rank | level }}</span><span class="is-sr-only">{{ rank | level }}</span></div>`);
         current.append(head);
 
         let progress = $(`<div class="pbar"><progress class="progress" :value="complete" max="100"></progress><span class="progress-value has-text-danger">{{ complete }}%</span></div>`);
@@ -2284,7 +2442,7 @@ function addProject(parent,project){
         let buy = $('<div class="buy"></div>');
         current.append(buy);
 
-        buy.append($(`<button aria-label="${loc('queue')} ${project}" class="button" @click="queue('${project}')">${loc('queue')}</button>`));
+        buy.append($(`<button aria-label="${loc('queue')} ${title}" class="button" @click="queue('${project}')">${loc('queue')}</button>`));
         buy.append($(`<button :aria-label="arpaProjectSRCosts('1','${project}')" class="button x1" @click="build('${project}',1)">1%</button>`));
         buy.append($(`<button :aria-label="arpaProjectSRCosts('10','${project}')" class="button x10" @click="build('${project}',10)">10%</button>`));
         buy.append($(`<button :aria-label="arpaProjectSRCosts('25','${project}')" class="button x25" @click="build('${project}',25)">25%</button>`));
@@ -2326,11 +2484,10 @@ function addProject(parent,project){
                 build(pro,num){
                     buildArpa(pro,num,true);
                 },
-                srDesc(){
-                    return srSpeak(arpaProjects[project].desc);
-                },
-                srLevel(){
-                    return srSpeak(arpaProjects[project].effect());
+                srDescAndEffect(){
+                    let desc = typeof arpaProjects[project].desc === 'string' ? arpaProjects[project].desc : arpaProjects[project].desc();
+                    let effect = arpaProjects[project].effect();
+                    return srSpeak(`${desc}\n${effect}`);
                 },
                 arpaProjectSRCosts(id,project){
                     let inc = id === '100' ? 100 - global.arpa[project].complete : id;

@@ -1,4 +1,4 @@
-import { global, save, message_logs, message_filters, webWorker, keyMultiplier, intervals, resizeGame, atrack } from './vars.js';
+import { global, save, message_logs, message_filters, webWorker, keyMultiplier, intervals, resizeGame, atrack, p_on, quantum_level } from './vars.js';
 import { loc } from './locale.js';
 import { races, traits, genus_traits, traitSkin, fathomCheck } from './races.js';
 import { actions, actionDesc } from './actions.js';
@@ -10,6 +10,8 @@ import { govActive } from './governor.js';
 import { govEffect } from './civics.js';
 import { universeLevel, universeAffix, alevel } from './achieve.js';
 import { astrologySign, astroVal } from './seasons.js';
+import { shipCosts, TPShipDesc } from './truepath.js';
+import { mechCost, mechDesc } from './portal.js';
 
 var popperRef = false;
 export function popover(id,content,opts){
@@ -113,11 +115,6 @@ export function gameLoop(act){
                 if (webWorker.w){
                     webWorker.w.postMessage({ loop: 'clear' });
                 }
-                else {
-                    clearInterval(intervals['main_loop']);
-                    clearInterval(intervals['mid_loop']);
-                    clearInterval(intervals['long_loop']);
-                }
                 if (global.settings.at > 0){
                     global.settings.at = atrack.t;
                 }
@@ -126,6 +123,7 @@ export function gameLoop(act){
             break;
         case 'start':
             {
+<<<<<<< HEAD
                 let main_timer = 20;
                 let mid_timer = 200;
                 let long_timer = 1500;
@@ -142,60 +140,93 @@ export function gameLoop(act){
                     long_timer = Math.floor(long_timer * fast);
                 }
                 webWorker.mt = main_timer;
+=======
+                addATime(Date.now());
+>>>>>>> a9bd5b4851f4edd0d2f4e436fef0f2ff4133911d
 
-                calcATime();
+                const timers = loopTimers();
 
-                if (atrack.t > 0){
-                    main_timer = Math.ceil(main_timer * 0.5);
-                    mid_timer = Math.ceil(mid_timer * 0.5);
-                    long_timer = Math.ceil(long_timer * 0.5);
-                }
+                // Used to calculate resource increase.
+                webWorker.mt = timers.webWorkerMainTimer;
 
                 if (webWorker.w){
-                    webWorker.w.postMessage({ loop: 'short', period: main_timer });
-                    webWorker.w.postMessage({ loop: 'mid', period: mid_timer });
-                    webWorker.w.postMessage({ loop: 'long', period: long_timer });
+                    webWorker.w.postMessage({ loop: 'start', period: timers.mainTimer });
                 }
-                else {
-                    intervals['main_loop'] = setInterval(function(){
-                        fastLoop();
-                    }, main_timer);
-                    intervals['mid_loop'] = setInterval(function(){
-                        midLoop();
-                    }, mid_timer);
-                    intervals['long_loop'] = setInterval(function(){
-                        longLoop();
-                    }, long_timer);
-                }
-
                 webWorker.s = true;
             }
     }
 }
 
-function calcATime(){
-    let dt = Date.now();
-    let timeDiff = dt - global.stats.current;
-    if (global.stats.hasOwnProperty('current') && (timeDiff >= 120000 || global.settings.at > 0)){
+// Computes the relative to default duration of a single loop (common for all three loop types).
+// Note that these values are not tied to the time_multiplier from fastLoop - the relative speed of time in the game
+// is controlled by loop lengths.
+export function loopTimers(){
+    // Here come any speed modifiers not related to accelerated time.
+    let modifier = 1.0;
+    if (global.race['slow']){
+        modifier *= 1 + (traits.slow.vars()[0] / 100);
+    }
+    if (global.race['hyper']){
+        modifier *= 1 - (traits.hyper.vars()[0] / 100);
+    }
+
+    // Main loop takes 250ms without any modifiers.
+    const webWorkerMainTimer = Math.floor(250 * modifier);
+    // Mid loop takes 1000ms without any modifiers.
+    const baseMidTimer = webWorker.midRatio * webWorkerMainTimer;
+    // Long loop (game day) takes 5000ms without any modifiers.
+    const baseLongTimer = webWorker.longRatio * webWorkerMainTimer;
+    // The constant by which the time is accelerated when atrack.t > 0.
+    const timeAccelerationFactor = 2;
+
+    const aTimeMultiplier = atrack.t > 0 ? 1 / timeAccelerationFactor : 1;
+    return {
+        webWorkerMainTimer,
+        mainTimer: Math.ceil(webWorkerMainTimer * aTimeMultiplier),
+        longTimer: Math.ceil(baseLongTimer * aTimeMultiplier),
+        baseLongTimer,
+        timeAccelerationFactor,
+    };
+}
+
+// Adds accelerated time if enough time has passed since `global.stats.current`. Returns true if there was accelerated
+// time added. If the parameter is true, it will only add the time if a threshold of 120s has been reached.
+export function addATime(currentTimestamp){
+    // The second case is used for the initialization of atrack.t.
+    if (exceededATimeThreshold(currentTimestamp) || global.stats.hasOwnProperty('current') && global.settings.at > 0){
+        let timeDiff = currentTimestamp - global.stats.current;
+        // Removing any accelerated time if the value is larger than the cap.
         if (global.settings.at > 11520){
             global.settings.at = 0;
         }
+        // Accelerated time is added only if it is over the threshold.
         if (timeDiff >= 120000){
-            global.settings.at += Math.floor(timeDiff / 3333);
+            const timers = loopTimers();
+            const gameDayDuration = timers.baseLongTimer;
+            // The number of days during which the time is accelerated (at) should take as long as 2 / 3 of paused time.
+            // at * gameDayDuration / timeAccelerationFactor = 2 / 3 * timeDiff
+            global.settings.at += Math.floor(2 / 3 * timeDiff * timers.timeAccelerationFactor / gameDayDuration);
         }
+        // Accelerated time is capped at 8*60*60/2.5 game days.
         if (global.settings.at > 11520){
             global.settings.at = 11520;
         }
         atrack.t = global.settings.at;
+        // Updating the current date so that it won't be counted twice (e.g., when unpausing).
+        global.stats.current = currentTimestamp;
     }
+}
+
+// Takes the current Date.now, returns whether the minimum threshold to count accelerated time has passed.
+export function exceededATimeThreshold(currentTimestamp){
+    return global.stats.hasOwnProperty('current') && currentTimestamp - global.stats.current >= 120000;
 }
 
 window.exportGame = function exportGame(){
     if (global.race['noexport']){
         return `Export is not available during ${global.race['noexport']} Creation`;
     }
-    calcATime();
-    global.stats['current'] = Date.now();
+    addATime(Date.now());
     return LZString.compressToBase64(JSON.stringify(global));
 }
 
@@ -223,6 +254,21 @@ window.importGame = function importGame(data,utf16){
                 saveState.stats.know -= 5000000;
             }
         }
+        // prevent invalid message colors from escaping class attribute
+        if (Array.isArray(saveState.lastMsg)){
+            // Legacy save file: prior to v1.1.4
+            for (let i = 0; i < saveState.lastMsg.length; i++){
+                saveState.lastMsg[i].c = saveState.lastMsg[i].c.replaceAll('"', '');
+            }
+        }
+        else {
+            // Save file from v1.1.4 or newer
+            for (const msgQueue in saveState.lastMsg){
+                for (const msg of saveState.lastMsg[msgQueue]){
+                    msg.c = msg.c.replaceAll('"', '');
+                }
+            }
+        }
         save.setItem('evolved',LZString.compressToUTF16(JSON.stringify(saveState)));
         window.location.reload();
     }
@@ -235,20 +281,21 @@ export function powerGrid(type,reset){
     switch (type){
         case 'power':
             power_structs = [
-                'city:transmitter','prtl_ruins:arcology','city:apartment','int_alpha:habitat','int_alpha:luxury_condo','spc_red:spaceport','spc_titan:titan_spaceport','spc_titan:electrolysis','int_alpha:starport',
-                'spc_dwarf:shipyard','spc_titan:ai_core2','spc_eris:drone_control','spc_titan:ai_colonist','int_blackhole:s_gate','gxy_gateway:starbase','spc_triton:fob',
-                'spc_enceladus:operating_base','spc_enceladus:zero_g_lab','spc_titan:sam','gxy_gateway:ship_dock','prtl_ruins:hell_forge','int_neutron:stellar_forge','int_neutron:citadel',
-                'tau_home:orbital_station','tau_red:orbital_platform','tau_gas:refueling_station','tau_home:tau_farm','tau_gas:ore_refinery','tau_gas:whaling_station',
+                'city:transmitter','prtl_ruins:arcology','city:apartment','eden_asphodel:rectory','eden_asphodel:corruptor','int_alpha:habitat','int_alpha:luxury_condo','spc_red:spaceport','spc_titan:titan_spaceport','spc_titan:electrolysis',
+                'int_alpha:starport','eden_asphodel:encampment','spc_dwarf:shipyard','spc_titan:ai_core2','spc_eris:drone_control','spc_titan:ai_colonist','int_blackhole:s_gate','gxy_gateway:starbase','spc_triton:fob',
+                'prtl_wasteland:demon_forge','prtl_wasteland:twisted_lab','spc_enceladus:operating_base','spc_enceladus:zero_g_lab','spc_titan:sam','gxy_gateway:ship_dock','prtl_ruins:hell_forge','int_neutron:stellar_forge','int_neutron:citadel',
+                'prtl_badlands:mortuary','tau_home:orbital_station','tau_red:orbital_platform','tau_gas:refueling_station','tau_home:tau_farm','tau_gas:ore_refinery','tau_gas:whaling_station',
                 'city:coal_mine','spc_moon:moon_base','spc_red:red_tower','spc_home:nav_beacon','int_proxima:xfer_station','gxy_stargate:telemetry_beacon','int_nebula:nexus','gxy_stargate:gateway_depot',
                 'spc_dwarf:elerium_contain','spc_gas:gas_mining','spc_belt:space_station','spc_gas_moon:outpost','gxy_gorddon:embassy','gxy_gorddon:dormitory','gxy_alien1:resort','spc_gas_moon:oil_extractor',
-                'int_alpha:int_factory','city:factory','spc_red:red_factory','spc_dwarf:world_controller','prtl_fortress:turret','prtl_badlands:war_drone','city:wardenclyffe','city:biolab','city:mine',
-                'city:rock_quarry','city:cement_plant','city:sawmill','city:mass_driver','int_neutron:neutron_miner','prtl_fortress:war_droid','prtl_pit:soul_forge','gxy_chthonian:excavator',
+                'prtl_wasteland:hell_factory','int_alpha:int_factory','city:factory','spc_red:red_factory','spc_dwarf:world_controller','prtl_fortress:turret','prtl_badlands:war_drone','city:wardenclyffe','city:biolab','city:mine',
+                'city:rock_quarry','city:cement_plant','city:sawmill','city:mass_driver','int_neutron:neutron_miner','prtl_fortress:war_droid','prtl_pit:soul_forge','gxy_chthonian:excavator','prtl_pit:shadow_mine','prtl_pit:tavern',
                 'int_blackhole:far_reach','prtl_badlands:sensor_drone','prtl_badlands:attractor','city:metal_refinery','gxy_stargate:gateway_station','gxy_alien1:vitreloy_plant','gxy_alien2:foothold',
-                'gxy_gorddon:symposium','int_blackhole:mass_ejector','city:casino','spc_hell:spc_casino','tau_home:tauceti_casino','prtl_fortress:repair_droid','gxy_stargate:defense_platform','prtl_ruins:guard_post',
-                'prtl_lake:cooling_tower','prtl_lake:harbour','prtl_spire:purifier','prtl_ruins:archaeology','prtl_pit:gun_emplacement','prtl_gate:gate_turret','prtl_pit:soul_attractor',
+                'gxy_gorddon:symposium','int_blackhole:mass_ejector','city:casino','spc_hell:spc_casino','tau_home:tauceti_casino','prtl_wasteland:hell_casino','prtl_fortress:repair_droid','gxy_stargate:defense_platform','prtl_ruins:guard_post',
+                'prtl_lake:cooling_tower','prtl_lake:harbor','prtl_spire:purifier','prtl_ruins:archaeology','prtl_pit:gun_emplacement','prtl_gate:gate_turret','prtl_pit:soul_attractor',
                 'prtl_gate:infernite_mine','int_sirius:ascension_trigger','spc_kuiper:orichalcum_mine','spc_kuiper:elerium_mine','spc_kuiper:uranium_mine','spc_kuiper:neutronium_mine','spc_dwarf:m_relay',
                 'tau_home:tau_factory','tau_home:infectious_disease_lab','tau_home:alien_outpost','tau_gas:womling_station','spc_red:atmo_terraformer','tau_star:matrix','tau_home:tau_cultural_center',
-                'prtl_pit:soul_capacitor','city:replicator'
+                'eden_elysium:sacred_smelter','prtl_pit:soul_capacitor','prtl_lake:oven_complete','eden_elysium:elysanite_mine','eden_elysium:elerium_containment','eden_elysium:pillbox','eden_elysium:archive',
+                'eden_elysium:restaurant','eden_elysium:eden_cement','eden_isle:spirit_battery','eden_isle:spirit_vacuum','city:replicator'
             ];
             break;
         case 'moon':
@@ -296,6 +343,9 @@ export function powerGrid(type,reset){
         case 'tau_roid':
             power_structs = ['tau_roid:mining_ship','tau_roid:whaling_ship'];
             break;
+        case 'asphodel':
+            power_structs = ['eden_asphodel:soul_engine','eden_asphodel:bunker','eden_asphodel:asphodel_harvester','eden_asphodel:ectoplasm_processor','eden_asphodel:research_station','eden_asphodel:bliss_den'];
+            break;
     }
 
     if (reset){
@@ -322,8 +372,8 @@ export function initMessageQueue(filters){
     filters.forEach(function (filter){
         message_logs[filter] = [];
         if (!global.settings.msgFilters[message_logs.view].vis){
-            $(`#msgQueueFilter-${message_logs.view}`).removeClass('is-active');
-            $(`#msgQueueFilter-${filter}`).addClass('is-active');
+            $(`#msgQueueFilter-${message_logs.view}`).removeClass('is-active').attr('aria-disabled', 'false');
+            $(`#msgQueueFilter-${filter}`).addClass('is-active').attr('aria-disabled', 'true');
             message_logs.view = filter;
         }
     });
@@ -338,7 +388,7 @@ export function messageQueue(msg,color,dnr,tags,reload){
     color = color || 'warning';
 
     if (tags.includes(message_logs.view)){
-        let new_message = $('<p class="has-text-'+color+'">'+msg+'</p>');
+        let new_message = $('<p class="has-text-'+color+'"></p>').text(msg);
         $('#msgQueueLog').prepend(new_message);
         if ($('#msgQueueLog').children().length > global.settings.msgFilters[message_logs.view].max){
             $('#msgQueueLog').children().last().remove();
@@ -421,6 +471,11 @@ export function buildQueue(){
         <span id="pausequeue" class="${global.queue.pause ? 'pause' : 'play'}" role="button" @click="pauseQueue()" :aria-label="pausedesc()"></span>
     `));
 
+    if (global.settings.queuestyle) {
+        $('#buildQueue').addClass(global.settings.queuestyle);
+
+    }
+
     let queue = $(`<ul class="buildList"></ul>`);
     $('#buildQueue').append(queue);
 
@@ -453,6 +508,18 @@ export function buildQueue(){
                     let segments = global.queue.queue[index].id.split("-");
                     if (segments[0].substring(0,4) === 'arpa'){
                         c_action = segments[0].substring(4);
+                    }
+                    else if (segments[0] === 'tp' && segments[1].substring(0,4) === 'ship'){
+                        let raw = shipCosts(global.queue.queue[index].type);
+                        let costs = {};
+                        Object.keys(raw).forEach(function(res){
+                            costs[res] = function(){ return raw[res]; }
+                        });
+                        c_action = { cost: costs };
+                    }
+                    else if (segments[0] === 'hell' && segments[1].substring(0,4) === 'mech'){
+                        let costs = mechCost(global.queue.queue[index].type.size,global.queue.queue[index].type.infernal,true);
+                        c_action = { cost: costs };
                     }
                     else if (segments[0] === 'city' || segments[0] === 'evolution' || segments[0] === 'starDock'){
                         c_action = actions[segments[0]][segments[1]];
@@ -558,6 +625,12 @@ function attachQueuePopovers(){
                 if (struct.s[0].substring(0,4) === 'arpa'){
                     obj.popper.append(arpaProjectCosts(100,struct.a));
                 }
+                else if (struct.s[0].substring(0,2) === 'tp' && struct.s[1].substring(0,4) === 'ship'){
+                    TPShipDesc(obj.popper,deepClone(global.queue.queue[i]));
+                }
+                else if (struct.s[0].substring(0,4) === 'hell' && struct.s[1].substring(0,4) === 'mech'){
+                    mechDesc(obj.popper,deepClone(global.queue.queue[i]));
+                }
                 else {
                     actionDesc(obj.popper,struct.a,global[struct.s[0]][struct.s[1]],false,false,false,b_res);
                 }
@@ -581,6 +654,12 @@ export function decodeStructId(id){
     if (segments[0].substring(0,4) === 'arpa'){
         c_action = segments[0].substring(4);
     }
+    else if (segments[0] === 'tp' && segments[1].substring(0,4) === 'ship'){
+        c_action = 'ship';
+    }
+    else if (segments[0] === 'hell' && segments[1].substring(0,4) === 'mech'){
+        c_action = 'mech';
+    }
     else if (segments[0] === 'city' || segments[0] === 'evolution' || segments[0] === 'starDock'){
         c_action = actions[segments[0]][segments[1]];
     }
@@ -603,6 +682,10 @@ export function tagEvent(event, data){
 }
 
 export function modRes(res,val,notrack,buffer){
+    if(res === 'Food' && global.race['fasting']){
+        global.resource[res].amount = 0;
+        return false;
+    }
     let count = global.resource[res].amount + val;
     let success = true;
     if (count > global.resource[res].max && global.resource[res].max != -1){
@@ -627,7 +710,7 @@ export function modRes(res,val,notrack,buffer){
 }
 
 export function genCivName(alt){
-    let genus = races[global.race.species].type;
+    let genus = global.race.maintype || races[global.race.species].type;
     switch (genus){
         case 'animal':
             genus = 'animalism';
@@ -833,7 +916,7 @@ export function timeCheck(c_action,track,detailed,reqMet){
         let time = 0;
         let bottleneck = false;
         let offset = track && track.id[c_action.id] ? track.id[c_action.id] : false;
-        let costs = adjustCosts(c_action,offset);
+        let costs = c_action['doNotAdjustCost'] ? c_action.cost : adjustCosts(c_action,offset);
         let og_track_r = track ? {} : false;
         let og_track_rr = track ? {} : false;
         if (track){
@@ -854,7 +937,7 @@ export function timeCheck(c_action,track,detailed,reqMet){
         }
         let shorted = {};
         Object.keys(costs).forEach(function (res){
-            if (time >= 0 && !global.prestige.hasOwnProperty(res) && !['Morale','HellArmy','Structs','Bool'].includes(res)){
+            if (time >= 0 && !global.prestige.hasOwnProperty(res) && !['Morale','HellArmy','Structs','Bool','Army','Troops'].includes(res)){
                 var testCost = offset ? Number(costs[res](offset)) : Number(costs[res]());
                 if (testCost > 0){
                     let f_res = res === 'Species' ? global.race.species : res;
@@ -1073,29 +1156,40 @@ export function timeFormat(time){
     }
     else {
         time = +(time.toFixed(0));
-        if (time > 60){
-            let secs = time % 60;
-            let mins = (time - secs) / 60;
-            if (mins >= 60){
-                let r = mins % 60;
-                let hours = (mins - r) / 60;
-                if (hours > 24){
-                    r = hours % 24;
-                    let days = (hours - r) / 24;
-                    formatted = `${days}d ${r}h`;
-                }
-                else {
-                    r = ('0' + r).slice(-2);
-                    formatted = `${hours}h ${r}m`;
-                }
-            }
-            else {
-                secs = ('0' + secs).slice(-2);
-                formatted = `${mins}m ${secs}s`;
-            }
+        const secs_per_min = 60;
+
+        if (time < secs_per_min){
+            formatted = `${time}s`;
         }
         else {
-            formatted = `${time}s`;
+            const mins_per_hour = 60;
+            const secs_per_hour = secs_per_min*mins_per_hour;
+            const secs = time % secs_per_min;
+            const mins = Math.floor(time / secs_per_min) % mins_per_hour;
+
+            if (time < secs_per_hour){
+                if (secs > 0){ formatted = `${mins}m ${secs}s`; }
+                else { formatted = `${mins}m`; }
+            }
+            else {
+                const hours_per_day = 24;
+                const secs_per_day = secs_per_hour*hours_per_day;
+                const hours = Math.floor(time / secs_per_hour) % hours_per_day;
+
+                if (time < secs_per_day){
+                    if (mins > 0){ formatted = `${hours}h ${mins}m`; }
+                    else if (secs > 0){ formatted = `${hours}h ${secs}s`; }
+                    else { formatted = `${hours}h`; }
+                }
+                else {
+                    const days = Math.floor(time / secs_per_day);
+
+                    if (hours > 0){ formatted = `${days}d ${hours}h`; }
+                    else if (mins > 0){ formatted = `${days}d ${mins}m`; }
+                    else if (secs > 0){ formatted = `${days}d ${secs}s`; }
+                    else { formatted = `${days}d`; }
+                }
+            }
         }
     }
     return formatted;
@@ -1118,6 +1212,50 @@ export function powerCostMod(energy){
         return +(energy * 1.5).toFixed(2);
     }
     return energy;
+}
+
+export function calcQuantumLevel(load){
+    if (global.tech['high_tech'] && global.tech['high_tech'] >= 11){
+        let k_base = global.resource.Knowledge.max;
+        let k_inc = 250000;
+        let qbits = 0;
+        while (k_base > k_inc){
+            k_base -= k_inc;
+            k_inc *= 1.1;
+            qbits++;
+        }
+        qbits += +(k_base / k_inc).toFixed(2);
+        if (global.interstellar['citadel']){
+            let citadel = load ? global.interstellar.citadel.on : p_on['citadel']
+            if (global.tech['high_tech'] && global.tech['high_tech'] >= 15 && citadel > 0){
+                qbits *= 1 + (citadel * 0.05);
+            }
+        }
+        if (global.space['ai_core2']){
+            let core = load ? global.space.ai_core2.on : p_on['ai_core2']
+            if (global.tech['titan_ai_core'] && core > 0){
+                qbits *= 1.25;
+            }
+        }
+        if (global.stats.achieve['obsolete'] && global.stats.achieve[`obsolete`].l >= 5 && global.prestige.AICore.count > 0){
+            qbits *= 2 - (0.99 ** global.prestige.AICore.count);
+        }
+        if (global.race['linked']){
+            let factor = traits.linked.vars()[0] / 100 * global.resource[global.race.species].amount;
+            if (factor > traits.linked.vars()[1] / 100){
+                factor -= traits.linked.vars()[1] / 100;
+                factor = factor / (factor + 200 - traits.linked.vars()[1]);
+                factor += traits.linked.vars()[1] / 100;
+            }
+            qbits *= 1 + factor;
+        }
+        return +(qbits).toFixed(3);
+    }
+    return 0;
+}
+
+export function get_qlevel(wiki){
+    return wiki ? calcQuantumLevel(wiki) : quantum_level;
 }
 
 export function darkEffect(universe, flag, info, inputs){
@@ -1147,7 +1285,7 @@ export function darkEffect(universe, flag, info, inputs){
                 if (sludge){
                     dark *= 1 + (sludge * 0.03);
                 }
-                return (1 + ((Math.log2(10 + dark) - 3.321928094887362) / 5));
+                return (1 + ((Math.log2(10 + dark) - 3.321928094887362) / (flag ? 10 : 5)));
             }
             return 1;
 
@@ -1236,7 +1374,7 @@ export const calc_mastery = (function(){
     }
 })();
 
-export function masteryType(universe,detailed){
+export function masteryType(universe,detailed,unmodified){
     if (global.genes['challenge'] && global.genes.challenge >= 2){
         universe = universe || global.race.universe;
         let ua_level = universeLevel(universe);
@@ -1246,31 +1384,36 @@ export function masteryType(universe,detailed){
             m_rate += 0.05;
             u_rate -= 0.05;
         }
-        if (global.race['weak_mastery'] && universe === 'antimatter'){
-            m_rate /= 10;
-            u_rate /= 10;
-        }
-        if (global.race['nerfed']){
-            m_rate /= universe === 'antimatter' ? 5 : 2;
-            u_rate /= universe === 'antimatter' ? 5 : 2;
-        }
-        if (global.race['ooze']){
-            m_rate *= 1 - (traits.ooze.vars()[2] / 100);
-            u_rate *= 1 - (traits.ooze.vars()[2] / 100);
-        }
+
         let perk_rank = global.stats.feat['grandmaster'] && global.stats.achieve['corrupted'] && global.stats.achieve.corrupted.l > 0 ? Math.min(global.stats.achieve.corrupted.l,global.stats.feat['grandmaster']) : 0;
         if (perk_rank > 0){
             m_rate *= 1 + (perk_rank / 100);
             u_rate *= 1 + (perk_rank / 100);
         }
+
+        if (! unmodified) {
+            if (global.race['weak_mastery'] && universe === 'antimatter'){
+                m_rate /= 10;
+                u_rate /= 10;
+            }
+            if (global.race['nerfed']){
+                m_rate /= universe === 'antimatter' ? 5 : 2;
+                u_rate /= universe === 'antimatter' ? 5 : 2;
+            }
+            if (global.race['ooze']){
+                m_rate *= 1 - (traits.ooze.vars()[2] / 100);
+                u_rate *= 1 - (traits.ooze.vars()[2] / 100);
+            }
+            if (global.genes.challenge >= 5 && global.race.hasOwnProperty('mastery')){
+                m_rate *= 1 + (traits.mastery.vars()[0] * global.race.mastery / 100);
+                u_rate *= 1 + (traits.mastery.vars()[0] * global.race.mastery / 100);
+            }
+        }
+
         let m_mastery = ua_level.aLvl * m_rate;
         let u_mastery = 0;
         if (universe !== 'standard'){
             u_mastery = ua_level.uLvl * u_rate;
-        }
-        if (global.genes.challenge >= 5 && global.race.hasOwnProperty('mastery')){
-            m_mastery *= 1 + (traits.mastery.vars()[0] * global.race.mastery / 100);
-            u_mastery *= 1 + (traits.mastery.vars()[0] * global.race.mastery / 100);
         }
         return detailed ? { g: m_mastery, u: u_mastery, m: m_mastery + u_mastery } : m_mastery + u_mastery;
     }
@@ -1350,6 +1493,87 @@ export function challenge_multiplier(value,type,decimals,inputs){
     }
 }
 
+export function getResetConstants(type, inputs){
+    if (!inputs) { inputs = {}; }
+    let rc = {
+        pop_divisor: 999,
+        k_inc: 1000000,
+        k_mult: 100,
+        phage_mult: 0,
+        plasmid_cap: 150,
+    }
+
+    switch (type){
+        case 'mad':
+            rc.pop_divisor = 3;
+            rc.k_inc = 100000;
+            rc.k_mult = 1.1;
+            rc.plasmid_cap = 150;
+            if (inputs.synth === true || inputs.synth.val === true){
+                rc.pop_divisor = 5;
+                rc.k_inc = 125000;
+                rc.plasmid_cap = 100;
+            }
+            break;
+        case 'cataclysm':
+        case 'bioseed':
+            rc.pop_divisor = 3;
+            rc.k_inc = 50000;
+            rc.k_mult = 1.015;
+            rc.phage_mult = 1;
+            rc.plasmid_cap = 400;
+            break;
+        case 'ai':
+            rc.pop_divisor = 2.5;
+            rc.k_inc = 45000;
+            rc.k_mult = 1.014;
+            rc.phage_mult = 2;
+            rc.plasmid_cap = 600;
+            break;
+        case 'vacuum':
+        case 'bigbang':
+            rc.pop_divisor = 2.2;
+            rc.k_inc = 40000;
+            rc.k_mult = 1.012;
+            rc.phage_mult = 2.5;
+            rc.plasmid_cap = 800;
+            break;
+        case 'ascend':
+        case 'terraform':
+            rc.pop_divisor = 1.15;
+            rc.k_inc = 30000;
+            rc.k_mult = 1.008;
+            rc.phage_mult = 4;
+            rc.plasmid_cap = 2000;
+            break;
+        case 'matrix':
+            rc.pop_divisor = 1.5;
+            rc.k_inc = 32000;
+            rc.k_mult = 1.01;
+            rc.phage_mult = 3.2;
+            rc.plasmid_cap = 1800;
+            break;
+        case 'retired':
+            rc.pop_divisor = 1.15;
+            rc.k_inc = 32000;
+            rc.k_mult = 1.006;
+            rc.phage_mult = 3.2;
+            rc.plasmid_cap = 1800;
+            break;
+        case 'eden':
+            rc.pop_divisor = 1;
+            rc.k_inc = 18000;
+            rc.k_mult = 1.004;
+            rc.phage_mult = 2.5;
+            rc.plasmid_cap = 1800;
+            break;
+        default:
+            rc.unknown = true;
+            break;
+    }
+    return rc;
+}
+
 export function calcPrestige(type,inputs){
     let gains = {
         plasmid: 0,
@@ -1358,9 +1582,12 @@ export function calcPrestige(type,inputs){
         harmony: 0,
         artifact: 0,
         cores: 0,
+        supercoiled: 0,
+        pdebt: 0
     };
 
     if (!inputs) { inputs = {}; }
+    if (inputs.synth === undefined) inputs.synth = races[global.race.species].type === 'synthetic';
     let challenge = inputs.genes;
     let universe = inputs.uni;
     universe = universe || global.race.universe;
@@ -1389,77 +1616,12 @@ export function calcPrestige(type,inputs){
         }
     }
 
-    let pop_divisor = 999;
-    let k_inc = 1000000;
-    let k_mult = 100;
-    let phage_mult = 0;
-    let plasmid_cap = 150;
-
-    switch (type){
-        case 'mad':
-            pop_divisor = 3;
-            k_inc = 100000;
-            k_mult = 1.1;
-            plasmid_cap = 150;
-            if (inputs.synth !== undefined ? inputs.synth : races[global.race.species].type === 'synthetic'){
-                pop_divisor = 5;
-                k_inc = 125000;
-                plasmid_cap = 100;
-            }
-            break;
-        case 'cataclysm':
-        case 'bioseed':
-            pop_divisor = 3;
-            k_inc = 50000;
-            k_mult = 1.015;
-            phage_mult = 1;
-            plasmid_cap = 400;
-            break;
-        case 'ai':
-            pop_divisor = 2.5;
-            k_inc = 45000;
-            k_mult = 1.014;
-            phage_mult = 2;
-            plasmid_cap = 600;
-            break;
-        case 'vacuum':
-        case 'bigbang':
-            pop_divisor = 2.2;
-            k_inc = 40000;
-            k_mult = 1.012;
-            phage_mult = 2.5;
-            plasmid_cap = 800;
-            break;
-        case 'ascend':
-        case 'terraform':
-            pop_divisor = 1.15;
-            k_inc = 30000;
-            k_mult = 1.008;
-            phage_mult = 4;
-            plasmid_cap = 2000;
-            break;
-        case 'matrix':
-            pop_divisor = 1.5;
-            k_inc = 32000;
-            k_mult = 1.01;
-            phage_mult = 3.2;
-            plasmid_cap = 1800;
-            break;
-        case 'retire':
-            pop_divisor = 1.15;
-            k_inc = 32000;
-            k_mult = 1.006;
-            phage_mult = 3.2;
-            plasmid_cap = 1800;
-            break;
-        case 'eden':
-            pop_divisor = 1;
-            k_inc = 18000;
-            k_mult = 1.004;
-            phage_mult = 2.5;
-            plasmid_cap = 1800;
-            break;
-    }
+    let rc = getResetConstants(type, inputs);
+    let pop_divisor = rc.pop_divisor;
+    let k_inc = rc.k_inc;
+    let k_mult = rc.k_mult;
+    let phage_mult = rc.phage_mult;
+    let plasmid_cap = rc.plasmid_cap;
 
     if (challenge !== undefined){
         plasmid_cap = Math.floor(plasmid_cap * (1 + (challenge + (inputs.tp ? 1 : 0)) / 8));
@@ -1523,38 +1685,42 @@ export function calcPrestige(type,inputs){
     }
     gains.dark *= 2;
 
-    if (['ascend','descend','terraform'].includes(type)){
-        let harmony = 1;
+    if (['ascend','descend','terraform','apotheosis'].includes(type)){
+        let pr_gain = 1;
         if (challenge === undefined){
-            harmony = alevel();
-            if (harmony > 5){
-                harmony = 5;
+            pr_gain = alevel();
+            if (pr_gain > 5){
+                pr_gain = 5;
             }
         }
         else {
-            harmony = challenge + 1;
+            pr_gain = challenge + 1;
         }
 
         if (type === 'ascend' || type === 'terraform'){
             switch (universe){
                 case 'micro':
-                    harmony *= 0.25;
+                    pr_gain *= 0.25;
                     break;
                 case 'heavy':
-                    harmony *= 1.2;
+                    pr_gain *= 1.2;
                     break;
                 case 'antimatter':
-                    harmony *= 1.1;
+                    pr_gain *= 1.1;
                     break;
                 default:
                     break;
             }
+<<<<<<< HEAD
             gains.harmony *= 2;
             gains.harmony = parseFloat(harmony.toFixed(2));
 
+=======
+            gains.harmony = parseFloat(pr_gain.toFixed(2));
+>>>>>>> a9bd5b4851f4edd0d2f4e436fef0f2ff4133911d
         }
         else if (type === 'descend'){
-            let artifact = universe === 'micro' ? 1 : harmony;
+            let artifact = universe === 'micro' ? 1 : pr_gain;
             let spire = inputs.floor;
             if (spire !== undefined){
                 spire++;
@@ -1571,11 +1737,35 @@ export function calcPrestige(type,inputs){
             gains.artifact = artifact;
             gains.artifact *= 2;
         }
+        else if (type === 'apotheosis'){
+            gains.plasmid = (256 >> 4) ** 4 - 65535; // why? because I want you to cry about it.
+            if (universe === 'micro'){
+                gains.supercoiled = pr_gain ** 2;
+            }
+            else {
+                gains.supercoiled = pr_gain ** 3;
+            }
+            if (global.race['warlord']){
+                gains.artifact = 5;
+                gains.supercoiled = 64;
+            }
+        }
     }
 
     if (type === 'ai'){
         gains.cores = universe === 'micro' ? 2 : 5;
         gains.cores*=2;
+    }
+    
+    if (global.stats.pdebt > 0){
+        gains.plasmid -= global.stats.pdebt;
+        if (gains.plasmid < 0){
+            gains.pdebt = Math.abs(gains.plasmid);
+            gains.plasmid = 0;
+        }
+        else {
+            gains.pdebt = 0;
+        }
     }
 
     return gains;
@@ -1604,6 +1794,9 @@ export function adjustCosts(c_action, offset, wiki){
     costs = rebarAdjust(costs, offset, wiki);
     costs = extraAdjust(costs, offset, wiki);
     costs = heavyAdjust(costs, offset, wiki);
+    costs = dictatorAdjust(costs, offset, wiki);
+    costs = lMatAdjust(costs, c_action, offset, wiki);
+    costs = nexusAdjust(costs, c_action, offset, wiki);
     return craftAdjust(costs, offset, wiki);
 }
 
@@ -1628,7 +1821,7 @@ function loneAdjust(costs, offset, wiki){
     if (global.race['lone_survivor']){
         var newCosts = {};
         Object.keys(costs).forEach(function (res){
-            if (['Structs','Custom','Soul_Gem','Plasmid','Phage','Dark','Harmony','Blood_Stone','Artifact','Corrupt_Gem','Codex','Demonic_Essence','Horseshoe'].includes(res)){
+            if (['Structs','Custom','Soul_Gem','Plasmid','Phage','Dark','Harmony','Blood_Stone','Artifact','Supercoiled','Corrupt_Gem','Codex','Demonic_Essence','Horseshoe'].includes(res)){
                 newCosts[res] = function(){ return costs[res](offset, wiki); }
             }
             else if (['Knowledge'].includes(res)){
@@ -1656,7 +1849,7 @@ function truthAdjust(costs, c_action, offset, wiki){
             if (res === 'Money'){
                 newCosts[res] = function(){ return Math.round(costs[res](offset, wiki) * 3); }
             }
-            else if (['Structs','Knowledge','Custom','Soul_Gem','Plasmid','Phage','Dark','Harmony','Blood_Stone','Artifact','Corrupt_Gem','Codex','Demonic_Essence','Horseshoe'].includes(res)){
+            else if (['Structs','Knowledge','Custom','Soul_Gem','Plasmid','Phage','Dark','Harmony','Blood_Stone','Artifact','Supercoiled','Corrupt_Gem','Codex','Demonic_Essence','Horseshoe'].includes(res)){
                 newCosts[res] = function(){ return costs[res](offset, wiki); }
             }
             else {
@@ -1765,7 +1958,7 @@ function smolderAdjust(costs, offset, wiki){
                 let adjustRate = res === 'Plywood' ? 2 : 1;
                 newCosts['Chrysotile'] = function(){ return Math.round(costs[res](offset, wiki) * adjustRate) || 0; }
             }
-            else if (['HellArmy','Structs','Chrysotile','Knowledge','Custom','Soul_Gem','Plasmid','Phage','Dark','Harmony','Blood_Stone','Artifact','Corrupt_Gem','Codex','Demonic_Essence','Horseshoe','Mana','Energy'].includes(res)){
+            else if (['HellArmy','Army','Troops','Structs','Chrysotile','Knowledge','Custom','Soul_Gem','Plasmid','Phage','Dark','Harmony','Blood_Stone','Artifact','Supercoiled','Corrupt_Gem','Codex','Demonic_Essence','Horseshoe','Mana','Energy'].includes(res)){
                 newCosts[res] = function(){ return costs[res](offset, wiki); }
             }
             else {
@@ -1784,12 +1977,15 @@ function smolderAdjust(costs, offset, wiki){
 }
 
 function kindlingAdjust(costs, offset, wiki){
-    if (global.race['kindling_kindred'] && (costs['Lumber'] || costs['Plywood'])){
+    if ((global.race['kindling_kindred'] || global.race['iron_wood']) && (costs['Lumber'] || costs['Plywood'])){
         var newCosts = {};
         let adjustRate = 1 + (traits.kindling_kindred.vars()[0] / 100);
         Object.keys(costs).forEach(function (res){
-            if (res !== 'Lumber' && res !== 'Plywood' && res !== 'Structs'){
+            if (global.race['kindling_kindred'] && res !== 'Lumber' && res !== 'Plywood' && res !== 'Structs'){
                 newCosts[res] = function(){ return Math.round(costs[res](offset, wiki) * adjustRate) || 0; }
+            }
+            else if (global.race['iron_wood'] && res !== 'Plywood'){
+                newCosts[res] = function(){ return costs[res](offset, wiki); }
             }
             else if (res === 'Structs'){
                 newCosts[res] = function(){ return costs[res](offset, wiki); }
@@ -1857,6 +2053,58 @@ function craftAdjust(costs, offset, wiki){
                     }
                     return Math.round(cost);
                 }
+            }
+            else {
+                newCosts[res] = function(){ return costs[res](offset, wiki); }
+            }
+        });
+        return newCosts;
+    }
+    return costs;
+}
+
+function dictatorAdjust(costs, offset, wiki){
+    if (global.civic.govern.type === 'dictator'){
+        let adjustRate = 1 - (govEffect.dictator()[2] / 100);
+        let newCosts = {};
+        Object.keys(costs).forEach(function (res){
+            if (['Lumber','Stone','Furs','Copper','Iron','Aluminium','Cement','Coal'].includes(res)){
+                newCosts[res] = function(){ return costs[res](offset, wiki) * adjustRate; }
+            }
+            else {
+                newCosts[res] = function(){ return costs[res](offset, wiki); }
+            }
+        });
+        return newCosts;
+    }
+    return costs;
+}
+
+function lMatAdjust(costs, c_action, offset, wiki){
+    if (global.race['living_materials']){
+        let newCosts = {};
+        let path = c_action.hasOwnProperty('struct') ? c_action.struct().p : false;
+        Object.keys(costs).forEach(function (res){
+            if (path && global[path[1]].hasOwnProperty(path[0]) && global[path[1]][path[0]].hasOwnProperty('l_m') 
+                && (['Lumber','Furs','Plywood'].includes(res) || (res === 'Stone' && global.race['sappy']))){
+                newCosts[res] = function(){ return Math.round(costs[res](offset, wiki) * traits.living_materials.vars()[0] ** (global[path[1]][path[0]].l_m / 25)); }
+            }
+            else {
+                newCosts[res] = function(){ return costs[res](offset, wiki); }
+            }
+        });
+        return newCosts;
+    }
+    return costs;
+}
+
+function nexusAdjust(costs, c_action, offset, wiki){
+    if(global.tech['nexus'] && global.race['witch_hunter'] && global.tech['roguemagic'] && global.tech.roguemagic >= 7){
+        let newCosts = {};
+        let adjustRate = 0.96 ** global.tech['nexus'];
+        Object.keys(costs).forEach(function (res){
+            if (['Mana'].includes(res)){
+                newCosts[res] = function(){ return costs[res](offset, wiki) * adjustRate; }
             }
             else {
                 newCosts[res] = function(){ return costs[res](offset, wiki); }
@@ -1982,7 +2230,19 @@ export function svgIcons(icon){
             return `<g transform="translate(0 -1036.4)">
             <path style="stroke-linejoin:round;stroke:#ffbf00;stroke-width:.25;" d="m3.4724 8.5186 3.0305-7.0711h6.9448l-5.0192 5.0823h4.1353l-8.1128 9.0914 2.0834-7.1342z" transform="translate(0 1036.4)"/>
           </g>`;
-    }
+        case 'meat':
+            return `<path d="M0.26,147.54c0.03,9.81,8.69,19.93,16.89,24.05c5.21,2.61,8.18,9.46,12.72,13.81c5.23,5.01,10.4,11.42,16.8,13.59 c17.18,5.81,35.19-14.63,32.08-29.95c-1.06-5.24-0.61-12.9,2.51-16.31c3.18-3.47,10.44-3.48,16.02-4.26 c12.61-1.76,25.38-2.53,37.9-4.76c6.75-1.2,14.1-3.23,19.48-7.22c11.88-8.81,24.21-17.81,33.6-29.08 c14.98-17.96,15.19-45.27,3.06-65.42c-4.04-6.72-7.15-14.9-12.95-19.46c-11.04-8.66-23.71-15.23-35.79-22.5  c-0.41-0.25-2.4,1.08-2.71,2c-0.62,1.82-0.58,3.86-0.82,5.81c-0.56,4.48-1.93,7.93-4.65,12.19c-6.13,9.62-14.8,8.16-22.83,10.88 c-4.74,1.61-8.27,6.55-12.73,9.39c-4.74,3.01-9.7,6.25-15.01,7.52c-2.92,0.7-7.29-1.75-10.06-3.98c-8.91-7.2-11.87-0.5-13.71,6.14  c-3.48,12.54-6.44,25.26-8.8,38.06c-1.1,5.97-0.3,12.29-0.37,18.45c-0.12,10.04-5.06,15.03-15.05,14.97  c-4.4-0.03-8.83-0.87-13.17-0.52C14.13,121.63-2.27,136.46,0.26,147.54z"/>`;
+        case 'trophy':
+            return `<rect width='24' height='24' stroke='none' fill='#000000' opacity='0'/><g transform="matrix(0.42 0 0 0.42 12 12)" ><g style=""><g transform="matrix(1 0 0 1 0 7)" ><path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: rgb(255,160,0); fill-rule: nonzero; opacity: 1;" transform=" translate(-24, -31)" d="M 25 34 L 24 36 L 23 34 L 22 26 L 26 26 z" stroke-linecap="round" /></g><g transform="matrix(1 0 0 1 0 16)" ><path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: rgb(251,192,45); fill-rule: nonzero; opacity: 1;" transform=" translate(-24, -40)" d="M 29 44 C 29 45.105 28.104 46 27 46 L 21 46 C 19.896 46 19 45.105 19 44 L 19 37 C 19 35.895 23 34 23 34 L 25 34 C 25 34 29 35.895 29 37 L 29 44 z" stroke-linecap="round" /></g><g transform="matrix(1 0 0 1 0 -5.5)" ><path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill-rule: nonzero; opacity: 1;" transform=" translate(-24, -18.5)" d="M 25 34 L 25 35 L 23 35 L 23 34 L 22 26 L 26 26 z M 19.71 24.971 C 19.204 24.842 7.292000000000002 21.735 5.32 12.203 C 4.443 7.958 5.529 5.508 6.596 4.199 C 7.915 2.578 9.713 2 10.955 2 C 12.616 2 13.9 2.457 14.773 3.359 C 15.871 4.496 15.855 5.879 15.850999999999999 6.035 C 15.850999999999999 7.607 14.786 10 11.850999999999999 10 L 11.850999999999999 10 C 11.728 10 11.094999999999999 9.982 10.437 9.635 C 9.48 9.133 8.955 8.195 8.955 7 L 10.955 7 C 10.955 7.574 11.178 7.764 11.37 7.867 C 11.598 7.986 11.85 8 11.852 8 C 13.755 8 13.852 6.333 13.852 6 C 13.852 5.951 13.85 5.268 13.317 4.731 C 12.834 4.246 12.039 4 10.955 4 C 10.353 4 9.086 4.309 8.146 5.461 C 7.01 6.857 6.71 9.047 7.279 11.797 C 8.999 20.115000000000002 20.087 23.002000000000002 20.198999999999998 23.029 L 19.71 24.971 z M 28.09 25 L 27.491 23.092 C 27.591 23.063 37.562 19.83 40.397999999999996 11.714999999999998 C 41.266999999999996 9.234999999999998 41.206999999999994 7.273999999999998 40.217999999999996 5.882999999999998 C 39.263 4.534999999999998 37.644 4.046999999999998 36.79 4.046999999999998 C 33.824 4.046999999999998 33.79 5.964999999999998 33.79 6.046999999999998 C 33.798 6.507999999999998 33.964 8.046999999999997 35.79 8.046999999999997 C 36.24 8.034999999999997 36.79 7.851999999999997 36.79 7.046999999999997 L 38.79 7.046999999999997 C 38.79 9.245999999999997 36.996 10.046999999999997 35.79 10.046999999999997 C 32.854 10.046999999999997 31.79 7.6519999999999975 31.79 6.046999999999997 C 31.79 4.663999999999997 32.835 2.046999999999997 36.79 2.046999999999997 C 38.311 2.046999999999997 40.544 2.882999999999997 41.851 4.722999999999997 C 42.802 6.062999999999997 43.65 8.480999999999998 42.289 12.374999999999996 C 39.115 21.449 28.539 24.859 28.09 25 z" stroke-linecap="round" /></g><g transform="matrix(1 0 0 1 0 -3)" ><path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill-rule: nonzero; opacity: 1;" transform=" translate(-24, -21)" d="M 29 39 L 19 39 L 19 37 C 19 35.896 23 34 23 34 L 25 34 C 25 34 29 35.896 29 37 L 29 39 z M 34 3 C 34 11 31.916 28 24 28 C 16.084 28 14 11 14 3 L 34 3 z" stroke-linecap="round" /></g><g transform="matrix(1 0 0 1 -1 -10)" ><path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: rgb(255,236,179); fill-rule: nonzero; opacity: 1;" transform=" translate(-23, -14)" d="M 25 19 L 23 19 L 23 11.609 L 21 12.275 L 21 10.515 L 24.813 9 L 25 9 L 25 19 z" stroke-linecap="round" /></g><g transform="matrix(1 0 0 1 0 18)" ><path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: rgb(122,83,75); fill-rule: nonzero; opacity: 1;" transform=" translate(-24, -42)" d="M 17 38 L 31 38 L 31 46 L 17 46 z" stroke-linecap="round" /></g><g transform="matrix(1 0 0 1 0 18)" ><path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill-rule: nonzero; opacity: 1;" transform=" translate(-24, -42)" d="M 19 41 L 29 41 L 29 43 L 19 43 z" stroke-linecap="round" /></g></g></g>`;
+        case 'sludge':
+            return `<path d="M269.614 30.044c-41.094.11-65.414 10.652-81.03 26.75-16.656 17.17-24.139 42.145-28.03 71.115-3.893 28.97-4.132 61.396-7.866 92.127-3.734 30.73-10.966 60.248-30.557 82.406-15.817 17.892-42.361 25.805-62.95 35.092-10.296 4.643-19.02 9.523-23.905 14.351-4.885 4.829-6.475 8.28-4.984 15.149 1.096 5.052 1.608 4.95 5.66 5.863.26.059.576.099.865.147.557 5.33.8 11.75-.547 15.793-2.607 7.825-15.762 11.07-15.469 19.314.375 10.517 11.005 24.543 21.44 23.178 9.19-1.203 13.373-15.322 12.992-24.582-.206-4.997-6.993-7.761-8.076-12.643-1.234-5.558.271-14.423 1.748-20.937 2.398-.154 4.955-.365 7.662-.627 17.928-1.738 42.524-4.773 62.908 10.922l.188.144.18.154c8.02 6.876 11.601 15.838 13.708 23.77 2.107 7.931 3.122 15.205 5.084 20.517 1.963 5.313 4.028 8.479 9.606 11.131 5.527 2.63 15.524 4.371 32.275 2.875 6.943-1.197 23.278-9.063 40.928-16.4 17.776-7.39 37.824-14.455 57.451-11.662 22.195 3.158 36.671 21.628 50.092 35.969 6.71 7.17 13.151 13.532 19.105 17.296 5.955 3.765 10.752 5.103 16.756 3.752 3.784-.85 6.019-2.717 8.604-6.716 2.585-4 4.872-10.023 7.088-16.815 4.43-13.584 8.153-30.887 22.523-41.054 15.43-10.919 35.04-9.373 51.36-9.366 2.497.001 4.914-.024 7.236-.088 1.676 6.563 3.632 16.245 2.43 22.186-1.07 5.28-8.3 8.397-8.44 13.781-.322 12.39 5.349 32.649 17.742 32.672 12.318.023 18.463-20.109 17.758-32.406-.326-5.692-7.844-8.637-9.877-13.963-2.372-6.216-3.17-17.085-3.437-24.25 3.643-1.11 5.647-2.575 6.986-4.809 1.073-1.79 1.352-3.25.978-5.77-.373-2.519-1.69-5.98-4.097-9.984-4.815-8.008-13.776-17.92-24.324-28.353-21.097-20.867-48.347-43.68-62.825-67.358-4.863-7.952-8.993-16.588-12.576-25.705-7.318-.474-14.554-.62-21.726-.51-.277 9.449-.298 27.428 3.062 37.31 3.313 9.743 17.026 11.318 17.207 25.634.193 15.237-6.193 39.866-21.422 40.383-15.972.541-25.213-24.753-25.283-40.735-.06-13.684 12.29-14.826 14.397-23.879 1.635-7.029.603-17.906-.751-26.676-1.116-5.49-5.266-11.503-12.227-10.64-33.643 3.153-66.13 10.934-98.915 17.518 3.746-21.205 11.727-47.904 35.3-65.721a73.974 73.974 0 0 1 4.52-3.154c-.304 5.65-.976 11.957-2.492 16.06-1.742 4.717-9.088 7.325-8.68 12.336.611 7.504 8.295 16.512 15.815 16.13 8.506-.434 16.796-11.492 15.943-19.966-.404-4.016-7.606-4.097-9.29-7.765-2.548-5.546-1.784-15.554-.835-22.373 21.352-9.2 44.721-6.84 64.479.29 8.004 2.89 13.774 7.568 18.152 13.231-4.283-18.421-7.608-37.494-11.049-56.047-4.684 11.104-23.122 12.455-42.303 4.672 15.512-9.746 25.996-23.802 35.4-38.783-5.935-25.782-13.52-48.61-24.792-64.387-11.33-15.859-25.448-25.085-48.428-25.775a258.397 258.397 0 0 0-8.445-.12zm-41.33 90.005c.635-.009 1.278.256 1.91.832 17.36 15.839 31.196 35.58 54.338 41.11-10.236 9.53-31.876 14.4-57.028 1.125-10.858-17.297-5.365-42.982.78-43.067zm41.023 318.409c-16.932.1-38.307 8.538-36.385 22.369 3.127 22.496 55.236 28.997 67.424 9.832 6.62-10.41-8.522-27.451-20.367-30.903-3.094-.901-6.764-1.321-10.672-1.298z"/>`;
+        case 'robot':
+            return `<path d="M5,7A1,1,0,0,0,4,8V22a1,1,0,0,0,1,1H19a1,1,0,0,0,1-1V8a1,1,0,0,0-1-1H13V4.723a2,2,0,1,0-2,0V7ZM18,9V21H6V9ZM7,13a1,1,0,0,1,1-1h2a1,1,0,0,1,0,2H8A1,1,0,0,1,7,13Zm6,0a1,1,0,0,1,1-1h2a1,1,0,0,1,0,2H14A1,1,0,0,1,13,13ZM1,14V12a1,1,0,0,1,2,0v2a1,1,0,0,1-2,0Zm22-2v2a1,1,0,0,1-2,0V12a1,1,0,0,1,2,0ZM7,18a1,1,0,0,1,1-1h8a1,1,0,0,1,0,2H8A1,1,0,0,1,7,18Z"/>`
+        case 'cat':
+            return `<g transform="translate(-.0014746 .00074460)"><path transform="translate(-1.43234e-6,6.02517e-6)" d="m421.35 116.37c6.661-9.874 7.19-19.641-5.553-41.645-4.768-10.077 1.085-14.588-1.666-22.211-10.943-56.08-3.316-77.199 47.17-11.458 9.356-3.0944 12.552-6.6149 36.148-0.5553 80.297-73.641 36.59-34.393 39.098 19.137-2.321 56.725-38.187 78.129-27.466 162.79 2.517 12.053-57.032 55.227-47.891 113.8 4.63 29.661 14.892 52.317 27.902 87.766 19.39-6.734 25.904 15.347 22.211 19.989-19.827 2.078-56.587 0.962-72.427 0.891-28.246 1.04-17.003-99.465-40.292-107.5-37.637 21.833-58.661 48.551-78.847 75.516 53.873-3.785 66.665 2.675 72.39 16.849 10.387 25.711-63.607 12.096-98.276 15.277-98.42 0.949-179.72-1.584-276.42-0.136-13.416 0.509-32.329-20.174 2.0063-23.757 46.559-1.37 129.56-23.365 162.6-7.122-13.05-81.378 61.401-252.64 196.01-250.42 10.73-1.215 31.068-29.052 43.311-47.197z"/><path style="fill:#87825a" transform="matrix(1.1462,0,0,1.1462,446.68,72.202)" d="m17.668 8.3434c0 4.6079-3.9552 8.3434-8.8342 8.3434-4.8786 0-8.8338-3.736-8.8338-8.3438 0-4.6079 3.9552-8.3434 8.8342-8.3434 4.8788 0 8.8338 3.7355 8.8338 8.3434z"/><path style="fill:#87825a" transform="matrix(1.1105,0,0,1.1105,497.17,72.096)" d="m17.668 8.3434c0 4.6079-3.9552 8.3434-8.8342 8.3434-4.8786 0-8.8338-3.736-8.8338-8.3438 0-4.6079 3.9552-8.3434 8.8342-8.3434 4.8788 0 8.8338 3.7355 8.8338 8.3434z"/><path style="fill:#000000" transform="matrix(1.4192 .37457 -.56317 1.2626 454.02 73.155)" d="m7.4758 5.0605c0 2.7948-1.6735 5.0605-3.7379 5.0605s-3.7379-2.2656-3.7379-5.0605c0-2.7948 1.6735-5.0605 3.7379-5.0605 2.0643 0 3.7379 2.2657 3.7379 5.0605z"/><path style="fill-opacity:.93677;fill:#ffffff" transform="translate(452.67,76.1)" d="m2.9301 1.465c0 0.8092-0.6559 1.4651-1.4651 1.4651-0.80907 0-1.465-0.6559-1.465-1.4651 0-0.80907 0.65593-1.465 1.465-1.465 0.8092 0 1.4651 0.65593 1.4651 1.465z"/><path style="fill:#000000" transform="matrix(1.3622 -.7547 .8342 1.2323 497.28 77.555)" d="m7.4758 4.428c0 2.4455-1.6735 4.428-3.7379 4.428-2.0644-0.0001-3.7379-1.9826-3.7379-4.428 0-2.4455 1.6735-4.428 3.7379-4.428s3.7379 1.9825 3.7379 4.428z"/><path style="fill-opacity:.93677;fill:#ffffff" transform="matrix(1.3077,0,0,1.3077,502.03,75.437)" d="m2.9301 1.465c0 0.8092-0.6559 1.4651-1.4651 1.4651-0.80907 0-1.465-0.6559-1.465-1.4651 0-0.80907 0.65593-1.465 1.465-1.465 0.8092 0 1.4651 0.65593 1.4651 1.465z"/></g>`;
+        case 'dog':
+            return `<g transform="translate(404.66 -518.36)"><path style="stroke:#000000;stroke-width:1.2597px" d="m-235.91 791.54c0.27836 10.072 2.2495 30.144 2.2495 30.144 0.79523 10.656 1.6323 21.311 2.6994 31.943 0.64834 6.4596 2.2495 19.346 2.2495 19.346 0.3533 3.0383 0.67076 6.1552 1.7996 8.9981 0.52214 1.3149 2.2495 3.5992 2.2495 3.5992 1.6809 2.6895 1.05 6.2773 1.1248 9.448 0.0745 3.1565-0.67486 9.448-0.67486 9.448-0.12207 1.7088-1.5022 3.0924-2.0246 4.724-1.2871 4.0201-2.5296 8.1546-2.6994 12.372-0.11262 2.7974 1.1248 8.3232 1.1248 8.3232 0.17766 1.3147 1.6981 2.0542 2.6994 2.9244 0.89489 0.7777 1.8186 1.5969 2.9244 2.0246 1.0583 0.40932 2.2446 0.55708 3.3743 0.4499 0.70819-0.0671 1.4411-0.26798 2.0246-0.67485 0.39384-0.27462 0.89981-1.1248 0.89981-1.1248 0.56406-0.70507 1.0985 1.4556 1.7996 2.0246 0.93889 0.76181 3.1493 1.7996 3.1493 1.7996 1.2005 0.68598 2.667 0.8628 4.0491 0.8998 0.9119 0.0244 2.6994-0.4499 2.6994-0.4499 0.53846-0.0897 1.0594-0.26964 1.5747-0.4499 0.92011-0.3219 2.6994-1.1248 2.6994-1.1248 1.029-0.42873 1.3713 1.788 2.2495 2.4745 0.87227 0.68181 2.9244 1.5747 2.9244 1.5747 1.0666 0.57432 2.3915-0.64138 3.3743-1.3497 1.0359-0.74663 2.4745-2.9244 2.4745-2.9244 1.2118-1.4322-0.12869-3.7813 0.22495-5.6238 0.25482-1.3276 1.4172-2.4741 1.3497-3.8242 0 0 0.22185-3.0655-0.22495-4.499-0.55107-1.7681-1.9715-3.1359-2.9244-4.724 0 0-2.953-4.3652-4.0491-6.7486-1.189-2.5851-2.0187-5.3354-2.6994-8.0983-0.78148-3.1719-1.1454-6.4345-1.5747-9.6729-0.77262-5.8284-1.7996-17.546-1.7996-17.546-0.69064-6.7336-1.2557-13.484-1.5747-20.246-0.4241-8.9893-0.4499-26.994-0.4499-26.994-0.0612-3.6745 0.0692-7.351 0.22495-11.023 0.0988-2.3272 0.12132-4.6675 0.44992-6.9735 0.29258-2.0532 1.3497-6.0737 1.3497-6.0737 0.41661-1.8748 2.3344-3.0539 3.5992-4.499 1.5718-1.7959 4.9489-5.1739 4.9489-5.1739 1.6922-1.7692 3.6156-3.3237 5.6238-4.724 1.4877-1.0373 4.724-2.6994 4.724-2.6994 1.0437-0.5964 2.4013-0.12559 3.5992-0.22495 2.1787-0.18069 6.5236-0.67486 6.5236-0.67486 1.945-0.2012 4.3764-0.83683 5.8488 0.44991 0.80839 0.7065 0.67485 3.1493 0.67485 3.1493l0.89981 9.8979c0.32762 3.6038 0.75725 7.1977 1.1248 10.798 0.38264 3.7484 1.1248 11.248 1.1248 11.248 0.43589 4.3589 1.1859 8.6839 1.5747 13.047 0.34662 3.8902 0.67485 11.698 0.67485 11.698 0.12963 2.247 0.18746 4.4981 0.22496 6.7486 0.0237 1.4245 0 4.2741 0 4.2741 0 1.1641 0.47479 2.2906 0.8998 3.3743 0.52662 1.3428 2.0246 3.8242 2.0246 3.8242 0.98486 1.8603 0.20163 4.2084 0.44991 6.2987 0.26901 2.2646-0.0294 4.7816 1.1248 6.7486 0.97189 1.6565 4.499 3.5992 4.499 3.5992 0.98152 0.78521 0.73239 2.4051 1.1248 3.5992 0.71804 2.1852 2.2495 6.5236 2.2495 6.5236 0.65817 1.9087 1.9707 3.5346 3.1493 5.1739 1.0873 1.5123 3.5992 4.2741 3.5992 4.2741 0.84352 1.0017 2.3046 1.3778 3.5992 1.5747 1.3426 0.20411 3.1493-0.22495 4.0491-0.4499 0.89981-0.22495 3.0333-0.81836 3.8242-2.0246 0.53606-0.8176-0.65411-2.4965 0.22495-2.9244 0.72927-0.35499 2.0246 1.3497 2.0246 1.3497 2.271 1.514 4.9643 2.4287 7.6484 2.9244 1.696 0.31317 3.5523 0.58711 5.1739 0 1.1013-0.39875 2.0767-1.2575 2.6994-2.2495 0.32872-0.52372 0.47364-1.1817 0.44991-1.7996-0.0364-0.94779-0.89981-2.6994-0.89981-2.6994-0.1852-0.55559 1.0055-0.65094 1.3497-1.1248 0.47468-0.65338 0.89982-2.2495 0.89982-2.2495 0.30633-0.76583 0.26083-1.692 0-2.4745-0.35569-1.067-2.0246-2.6994-2.0246-2.6994-2.2351-2.9801-5.6089-4.91-8.5482-7.1985-2.3316-1.8154-7.1985-5.1739-7.1985-5.1739-1.6383-1.1775-3.3086-2.4201-4.499-4.0491-1.5049-2.0593-3.1493-6.9735-3.1493-6.9735-1.1925-2.6406-1.3378-5.6605-1.5747-8.5482-0.66202-8.0726 0.44991-24.295 0.44991-24.295 0.0918-4.9572 0.23208-9.934 0.8998-14.847 0.48525-3.5703 1.6234-7.0244 2.2495-10.573 0 0 0.87878-5.1027 1.3497-7.6484 0.43069-2.3281 1.0286-4.6277 1.3497-6.9735 0.37752-2.7578 0.10255-5.5992 0.67487-8.3232 0.42416-2.019 2.0246-5.8487 2.0246-5.8487 1.0223-2.9532 2.9205-5.546 4.724-8.0983 1.4738-2.0857 4.9489-5.8487 4.9489-5.8487 2.0023-2.3664 3.6961-5.0379 4.9489-7.8733 1.1323-2.5626 2.2495-8.0983 2.2495-8.0983 1.1848-4.2651-0.3749-8.8462-0.4499-13.272-0.11306-6.6726 0-20.021 0-20.021 0-4.8693 2.0121-9.5496 2.4745-14.397 0.3561-3.733 0.27241-7.4979 0.22495-11.248 0 0-0.63255-11.861-0.22495-17.771 0.17219-2.4968 0.54907-4.9878 1.1248-7.4234 0 0 2.0342-8.2292 2.9244-12.372 0.49736-2.3148 1.3497-6.9735 1.3497-6.9735s0.29215-2.7003 0.4499-4.0491c0.50022-4.277 1.1404-8.538 1.5747-12.822 0.37928-3.742 0.55794-7.502 0.8998-11.248 0.2672-2.9276-0.007-5.9767 0.89982-8.7731 0.50768-1.566 1.2246-3.2027 2.4745-4.2741 0 0 3.0179-2.8698 4.724-4.0491 2.9537-2.0417 6.2992-3.4483 9.448-5.1739 2.3249-1.274 4.6842-2.4873 6.9735-3.8242 2.2101-1.2906 4.5698-2.3959 6.5236-4.0491 0 0 4.2498-2.9575 5.8488-4.9489 1.008-1.2554 1.6842-2.7666 2.2495-4.2741l2.6994-7.1985c0.49677-1.3247 1.7641-2.2703 2.2495-3.5992 0.36387-0.99605 0.53676-2.0924 0.44991-3.1493-0.12236-1.489-1.2846-2.7815-1.3497-4.2741-0.09041-2.072 1.3497-6.0737 1.3497-6.0737 0.36007-1.6203-0.78145-3.266-1.5747-4.724-0.22945-0.42176-0.89981-1.1248-0.89981-1.1248-1.2647-1.5809 0.43432-4.0963 0-6.0737-0.23031-1.0486-1.3497-2.9244-1.3497-2.9244-0.31107-0.67398-0.90075-1.2635-1.5747-1.5747-1.7073-0.78842-5.6238-0.4499-5.6238-0.4499-3.5257-0.28205-7.0526 0.55451-10.573 0.8998-2.7031 0.26515-8.0983 0.89982-8.0983 0.89982-2.9217 0.32464-5.906 0.25077-8.7731 0.89981-2.1744 0.49221-4.1019 1.869-6.2987 2.2495-0.51718 0.0896-1.2035 0.37116-1.5747 0-0.79532-0.79533 0-3.3743 0-3.3743s-0.14722-2.4985-0.67485-3.5992c-0.89647-1.8702-4.0491-4.724-4.0491-4.724-1.1424-1.3327-3.2098-1.5616-4.9489-1.7996-1.9373-0.26511-5.8488 0.44991-5.8488 0.44991-1.1214 0.0863-2.2762 0.2436-3.3743 0-3.6352-0.80648-10.123-4.724-10.123-4.724-4.7062-2.1962-10.329-1.2918-15.522-1.3497-6.9876-0.078-14.041 0.12131-20.921 1.3497-2.8493 0.50879-8.3232 2.4745-8.3232 2.4745-1.2716 0.37805-1.9602 1.8228-2.6994 2.9244-0.69162 1.0307-0.60496 2.5995-1.5747 3.3743-1.3789 1.1017-3.4794 0.63104-5.1739 1.1248-1.4577 0.42473-4.2741 1.5747-4.2741 1.5747-1.8415 0.67845-2.6396 2.9086-4.0491 4.2741-1.9456 1.8848-6.0737 5.3988-6.0737 5.3988-1.9129 1.7004-2.7786 4.8144-4.0491 6.5236s-2.669 2.2774-3.3743 3.8242c-0.94144 2.0649 0.10557 4.714-0.8998 6.7486-0.42281 0.85562-1.5816 1.1792-2.0246 2.0246-0.77816 1.4852-0.89981 4.9489-0.89981 4.9489-0.48289 2.6559-0.56038 5.4577 0 8.0983 0.30662 1.4448 1.7996 4.0491 1.7996 4.0491 0.58579 1.318 1.2862 2.5852 2.0246 3.8242 0.41524 0.69673 1.2162 1.2245 1.3497 2.0246 0.24247 1.4531-1.1248 4.2741-1.1248 4.2741-1.4583 5.5416-0.77782 11.458-1.7996 17.096-0.7459 4.116-3.1493 12.147-3.1493 12.147-0.74564 2.876-4.0084 4.4921-6.5236 6.0737-1.5678 0.98584-5.1739 2.0246-5.1739 2.0246-1.9664 0.76946-5.1739 0.22495-6.2986 0.67486-1.1248 0.4499-5.2915-0.15268-7.8733-0.67486-2.8588-0.5782-5.5888-1.6846-8.3232-2.6994-2.3632-0.87698-6.9735-2.9244-6.9735-2.9244-3.5449-1.4866-7.0487-3.1999-10.798-4.0491-3.3767-0.76487-6.8855-0.8901-10.348-0.8998l-40.154-0.11249c-7.1692-0.02-14.358 1.1085-21.483 0.78733-1.1438-0.0515-4.724-1.7996-7.6484-2.9244s-4.4658-2.6099-6.7486-3.8242l-10.573-5.6238s-5.9617-2.2121-8.9981-3.1493c-3.0415-0.93883-6.2986-2.2495-9.223-2.4745-2.9244-0.22496-13.817-1.1248-10.348-1.1248 1.1819 0-4.2229-0.18944-6.5236 0.22495-1.7275 0.31114-4.949 1.7996-4.949 1.7996-1.3463 0.48957-2.5767 1.6112-3.1493 2.9244-0.50953 1.1685-0.26986 2.5784 0 3.8242 0.19181 0.8855 0.62256 1.7204 1.1248 2.4745 0.79404 1.1924 1.7199 2.3738 2.9244 3.1493 2.193 1.4121 4.9669 1.5976 7.4234 2.4745 3.174 1.133 6.141 3.7345 9.448 3.5992 3.379-0.13824 4.7509 0.54802 7.1984 2.6994 1.6876 1.4834 5.3988 4.0491 5.3988 4.0491 2.2122 1.6592 4.3364 3.4505 6.2986 5.3988 1.6218 1.6103 4.499 5.1739 4.499 5.1739 2.2537 2.5917 5.3181 4.4107 8.3232 6.0737 2.8264 1.5642 8.9981 3.5992 8.9981 3.5992 1.9936 0.79744 3.8259 1.9792 5.8487 2.6994 1.2764 0.45446 3.9367 1.0123 3.9367 1.0123 5.3073 1.3647-0.94665 10.51-2.137 15.859-1.0044 4.5131-2.0246 13.722-2.0246 13.722-0.66986 4.5402-1.1167 9.1327-1.1248 13.722-0.006 3.8359 0.32093 7.6806 0.89981 11.473 0.40628 2.6613 1.6646 5.1846 1.7996 7.8733 0.0606 1.2076-0.4499 3.5992-0.4499 3.5992-0.35925 2.874-2.9244 7.1985-3.1493 8.0983-0.22495 0.8998-2.8918 5.5225-3.1493 8.5482 0 0-0.74971 7.039-0.89982 10.573-0.30548 7.192 0 21.595 0 21.595 0 2.41-0.4499 6.2986-0.67485 7.1985-0.22495 0.89981-1.5747 7.1985-1.7996 8.0983-0.22495 0.89981-1.7996 8.5482-2.0246 9.8979-0.22495 1.3497-2.7266 7.0382-4.0491 10.573-1.4547 3.888-2.5484 7.9219-4.2741 11.698-0.96276 2.1064-3.3743 6.0737-3.3743 6.0737-1.3028 2.3451-2.3717 4.8131-3.5992 7.1984-0.66 1.2825-1.7846 2.4019-2.0246 3.8242-0.16406 0.97252 0.44991 2.9244 0.44991 2.9244 0.19684 1.2794-0.17072 2.8441 0.67485 3.8242 0.3098 0.35907 1.3497 0.4499 1.3497 0.4499 0.57351 0.19116 1.0518-1.2032 1.5747-0.8998 0.38912 0.22581-0.0669 0.9048 0 1.3497 0.15166 1.0086 0.47222 1.9984 0.89981 2.9244 0.40989 0.88761 0.73017 1.9819 1.5747 2.4745 0 0 1.6938 1.3028 2.6994 1.5747 0.79624 0.21526 2.1056 0.73775 2.4745 0 0 0 0.23415-1.7177 0.8998-1.7996 0.68614-0.0844 0.70002 1.3384 1.3497 1.5747 0 0 1.6556 0.83771 2.4745 0.8998 0.81883 0.0621 2.0246 0.28097 2.2495-0.4499 0 0 0.0183-2.4116 0.89981-2.9244 0.59758-0.34758 1.3332 0.4499 2.0246 0.4499 0 0 0.92127 0.1373 1.3497 0 0.61426-0.19684 1.2795-0.5512 1.5747-1.1248 0.48036-0.93342-0.893-2.5974 0-3.1493 0.5705-0.3526 1.7996 0.8998 1.7996 0.8998 0.91222 0.45611 2.1949-0.18706 2.9244-0.8998 1.1872-1.16 1.2578-3.0947 1.5747-4.724 0.22949-1.18 0.22495-3.5992 0.22495-3.5992s-0.40917-11.85-0.22495-17.771c0.0936-3.0063 0.67485-8.9981 0.67485-8.9981 0.50608-6.7479 2.4732-13.339 4.499-19.796 1.0171-3.2417 3.8242-9.448 3.8242-9.448 1.2911-3.1897 0.65662-6.9653 2.0246-10.123 1.0257-2.3675 4.499-6.2986 4.499-6.2986 2.2605-3.1647 4.2124-6.5451 6.5236-9.6729 1.4893-2.0155 4.724-5.8488 4.724-5.8488 1.0754-1.3315 1.7886-2.9309 2.4745-4.499 0.66512-1.5207 0.92503-3.1966 1.5747-4.724 0.69573-1.6358 1.1388-3.551 2.4745-4.724 1.1408-1.0019 4.2741-1.5747 4.2741-1.5747 2.0598-0.75886 4.4712 0.12131 6.5236 0.8998 1.7695 0.67117 4.724 3.1493 4.724 3.1493 1.5447 1.0298 3.3206 2.2622 3.8242 4.0491 0.39489 1.4014-0.3725 2.917-0.8998 4.2741-0.69397 1.786-2.9244 4.949-2.9244 4.949-1.1271 1.9074-2.2395 3.9064-2.6994 6.0737-0.28019 1.3203 0 4.0491 0 4.0491 0 3.2942 1.0216 6.5352 2.0246 9.6729 0.7974 2.4948 2.2532 4.7375 3.1493 7.1985 0.90931 2.497 2.2495 7.6484 2.2495 7.6484 0.71937 2.4459 0 6.5236 0 7.6484s-0.12421 6.0504 0.4499 8.9981c0.34906 1.7923 0.47254 3.9197 1.7996 5.1739 0.79348 0.74991 3.1493 0.8998 3.1493 0.8998 0.88009 0.25145 1.3367-1.5074 2.2495-1.5747 0.66887-0.0492 1.7996 0.89982 1.7996 0.89982 1.1421 0.57106 1.7254 2.0352 2.9244 2.4745 1.6194 0.59319 3.4492 0 5.1739 0h2.2495c0.87446 0 1.8187-0.58876 2.2495-1.3497 0.18472-0.32626 0-1.1248 0-1.1248 0-1.0199 1.7996 0.8998 2.4745 1.7996 0.67487 0.8998 3.4434 2.1604 4.9489 1.3497l2.9244-1.5747c0.79773-0.42956 0.29044-2.1212 1.1248-2.4745 1.0265-0.43468 2.115 1.5404 3.1493 1.1248 0.46675-0.18754 0.48237-0.885 0.67487-1.3497 0.36296-0.87628 0.8998-2.6994 0.8998-2.6994 0.32251-0.96756-0.56017-1.9627-0.8998-2.9244-0.5379-1.523-1.7996-4.499-1.7996-4.499-0.7601-1.9003-4.499-2.9244-5.3988-2.9244s-4.2683-2.4418-6.2986-3.8242c-1.9463-1.3251-4.1039-2.4758-5.6238-4.2741-1.1475-1.3576-2.4745-4.724-2.4745-4.724-0.82702-1.5789-1.1884-3.3988-1.3497-5.1739-0.18372-2.0218 0.4499-6.0737 0.4499-6.0737 0.13759-1.8575 2.2387-3.002 3.5992-4.2741 1.0188-0.95259 3.3743-2.4745 3.3743-2.4745 0.7256-0.53211 1.8425-0.2746 2.6994 0 1.2285 0.3937 3.1493 2.2495 3.1493 2.2495 2.5634 1.831 5.1548 3.663 7.4234 5.8488 1.4174 1.3656 2.3538 3.1907 3.8242 4.499 0.8079 0.71888 1.6434 1.7485 2.6994 1.7996 4.9122 0.23777 3.2489 16.284 2.4745 24.745z"/></g>`;
+        }
 }
 
 export function svgViewBox(icon){
@@ -2057,6 +2317,18 @@ export function svgViewBox(icon){
             return `0 0 552 495`;
         case 'lightning':
             return `0 0 16 16`;
+        case 'meat':
+            return `0 0 200 200`;
+        case 'trophy':
+            return `0 0 24 24`;
+        case 'sludge':
+            return `0 0 512 512`;
+        case 'robot':
+            return `0 0 24 24`;
+        case 'cat':
+            return `0 0 546.19 445.84`;
+        case 'dog':
+            return `0 0 349.85 422.66`;
     }
 }
 
@@ -2089,6 +2361,12 @@ export function getBaseIcon(name,type){
                 return 'slime';
             case 'annihilation':
                 return 'lightning';
+            case 'immortal':
+                return 'meat';
+            case 'wish':
+                return 'trophy';
+            case 'planned_obsolescence':
+                return 'robot';
             case 'friday':
                 return 'mask';
             case 'valentine':
@@ -2129,10 +2407,109 @@ export function drawIcon(icon,size,shade,id,inject){
     return `<span ${inject}${select}class="flair drawnIcon"><svg class="star${shade}" version="1.1" x="0px" y="0px" width="${size}px" height="${size}px" viewBox="${svgViewBox(icon)}" xml:space="preserve">${svgIcons(icon)}</svg></span>`;
 }
 
+export function drawPet(){
+    if ($('#playerPet span.flair')){
+        clearElement($('#playerPet span.flair'),true);
+    }
+
+    if ($('#playerPet .flair').length === 0 && global.race['pet']){
+        let color = 'black';
+        if (global.race.pet['color']){
+            color = global.race.pet.color;
+        }
+        else {
+            if (global.race.pet.type === 'cat'){
+                switch (global.race.pet.name){
+                    case 0:
+                        color = 'gray';
+                        break;
+                    case 1:
+                    case 4:
+                    case 8:
+                        color = 'orange';
+                        break;
+                    case 10:
+                        color = 'black';
+                        global.race.pet['pattern'] = 'solid';
+                        break;
+                    default:
+                        let colors = ['black','white','gray','orange','cream'];
+                        color = colors[Math.rand(0,colors.length)];
+                        break;
+                }
+            }
+            else {
+                let colors = ['black','white','gray','brown'];
+                color = colors[Math.rand(0,colors.length)];
+            }
+            global.race.pet['color'] = color;
+        }
+
+        let pattern = 'solid';
+        if (global.race.pet['pattern']){
+            pattern = global.race.pet.pattern;
+        }
+        else {
+            let patterns = ['solid'];
+            if (global.race.pet.type === 'cat'){
+                patterns.push('stripe');
+            }
+            else {
+                patterns.push('patched');
+            }
+            pattern = patterns[Math.rand(0,patterns.length)];
+            global.race.pet['pattern'] = pattern;
+        }
+
+        let coat = ``;
+        if (pattern === 'patched'){
+            coat = `<defs>
+            <radialGradient id="PetGradient">
+                <stop class="stop1" offset="0%" />
+                <stop class="stop2" offset="50%" />
+                <stop class="stop1" offset="100%" />
+            </radialGradient>
+            </defs>`;
+        }
+        else if (pattern === 'stripe'){
+            coat = `<defs>
+            <linearGradient id="PetGradient" gradientTransform="rotate(135 0.45 0.5)">
+                <stop class="stop1" offset="0%" />
+                <stop class="stop2" offset="10%" />
+                <stop class="stop1" offset="20%" />
+                <stop class="stop2" offset="30%" />
+                <stop class="stop1" offset="40%" />
+                <stop class="stop2" offset="50%" />
+                <stop class="stop1" offset="60%" />
+                <stop class="stop2" offset="70%" />
+                <stop class="stop1" offset="80%" />
+                <stop class="stop2" offset="90%" />
+                <stop class="stop1" offset="100%" />
+            </linearGradient>
+            </defs>`;
+        }
+
+        $('#playerPet').append(`<span class="flair" aria-label="${loc(`event_${global.race.pet.type}_name${global.race.pet.name}`)} (${global.race.pet.type})"><svg class="${color} ${pattern}" version="1.1" x="0px" y="0px" width="16px" height="16px" viewBox="${svgViewBox(global.race.pet.type)}" xml:space="preserve">${coat}${svgIcons(global.race.pet.type)}</svg></span>`);
+
+        popover('playerPet',
+            function(obj){
+                let popper = $(`<div id="playerPetPop"></div>`);
+                obj.popper.append(popper);
+                popper.append(`<div>${loc(`event_${global.race.pet.type}_name${global.race.pet.name}`)}</div>`);
+                return undefined;
+            },
+            {
+                elm: `#playerPet .flair`,
+                classes: `has-background-light has-text-dark`
+            }
+        );
+    }
+}
+
 export function easterEgg(num,size){
     let easter = getEaster();
     const date = new Date();
-    if (easter.active && !global.special.egg[date.getFullYear()][`egg${num}`]){
+    if (easter.active && !global.special.egg[date.getFullYear()][`egg${num}`] && $(`#egg${num}`).length === 0){
         return drawIcon('egg', size ? size : 16, 2, `egg${num}`, `role="button" aria-label="Egg" `);
     }
     return '';
@@ -2172,7 +2549,7 @@ export function trickOrTreat(num,size,trick){
     const date = new Date();
     const year = date.getFullYear();
     let tot = trick ? 'trick' : 'treat';
-    if (halloween.active && !global.special.trick[year][`${tot}${num}`]){
+    if (halloween.active && !global.special.trick[year][`${tot}${num}`] && $(`#${tot}${num}`).length === 0){
         let label = trick ? `Ghost`: `Candy Corn`;
         return drawIcon(trick ? 'ghost' : 'candycorn', size ? size : 16, 2, `${tot}${num}`, `role="button" aria-label="${label}" `);
     }
@@ -2193,14 +2570,14 @@ export function trickOrTreatBind(id,trick){
             }
             else {
                 if (global.race.universe === 'antimatter'){
-                    global.prestige.AntiPlasmid.count += 13;
-                    global.stats.antiplasmid += 13;
-                    messageQueue(loc('city_trick_msg',[13,loc('resource_AntiPlasmid_plural_name')]),'success',false,['events']);
+                    global.prestige.AntiPlasmid.count += 12;
+                    global.stats.antiplasmid += 12;
+                    messageQueue(loc('city_trick_msg',[12,loc('resource_AntiPlasmid_plural_name')]),'success',false,['events']);
                 }
                 else {
-                    global.prestige.Plasmid.count += 13;
-                    global.stats.plasmid += 13;
-                    messageQueue(loc('city_trick_msg',[13,loc('resource_Plasmid_plural_name')]),'success',false,['events']);
+                    global.prestige.Plasmid.count += 12;
+                    global.stats.plasmid += 12;
+                    messageQueue(loc('city_trick_msg',[12,loc('resource_Plasmid_plural_name')]),'success',false,['events']);
                 }
             }
             $(`#${tot}${id}`).remove();
@@ -2214,7 +2591,7 @@ export function trickOrTreatBind(id,trick){
 }
 
 function single_emblem(achieve,size,icon,iconName,fool,uAffix){
-    return global.stats.achieve[achieve] && (fool ? global.stats.achieve[achieve][uAffix] - 1 : global.stats.achieve[achieve][uAffix]) > 0 ? `<p class="flair" title="${sLevel(global.stats.achieve[achieve][uAffix])} ${iconName}"><svg class="star${fool ? global.stats.achieve[achieve][uAffix] - 1 : global.stats.achieve[achieve][uAffix]}" version="1.1" x="0px" y="0px" width="${size}px" height="${size}px" viewBox="${svgViewBox(icon)}" xml:space="preserve">${svgIcons(icon)}</svg></p>` : '';
+    return global.stats.achieve[achieve] && (fool ? global.stats.achieve[achieve][uAffix] - 1 : global.stats.achieve[achieve][uAffix]) > 0 ? `<p class="flair" title="${sLevel(global.stats.achieve[achieve][uAffix])} ${iconName}"><svg class="star${fool ? global.stats.achieve[achieve][uAffix] - 1 : global.stats.achieve[achieve][uAffix]}" version="1.1" x="0px" y="0px" width="${size}px" height="${size}px" viewBox="${svgViewBox(icon)}" xml:space="preserve">${svgIcons(icon)}</svg><span class="is-sr-only">${sLevel(global.stats.achieve[achieve][uAffix])} ${iconName}</span></p>` : '';
 }
 
 export function format_emblem(achieve,size,baseIcon,fool,universe){
@@ -2304,9 +2681,18 @@ export function calcGenomeScore(genome,wiki){
         }
     }
 
-    Object.keys(genus_traits[genome.genus]).forEach(function (t){
-        genes -= traits[t].val;
-    });
+    if (genome.genus === 'hybrid'){
+        genome.hybrid.forEach(function(g){
+            Object.keys(genus_traits[g]).forEach(function (t){
+                genes -= traits[t].val;
+            });
+        });
+    }
+    else {
+        Object.keys(genus_traits[genome.genus]).forEach(function (t){
+            genes -= traits[t].val;
+        });
+    }
 
     let max_complexity = 2;
     if (wiki){
@@ -2517,12 +2903,13 @@ export function getEaster(){
         global.special.egg[year]['egg18'] = false;
     }
 
+    // `month` is the 1-12 month when easter ends, `day` the 1-31 day it begins. Easter event has constant number of days.
 	let f = Math.floor,
 		// Golden Number - 1
 		G = year % 19,
 		C = f(year / 100),
 		// related to Epact
-		H = (C - f(C / 4) - f((8 * C + 13)/25) + 19 * G + 15) % 30,
+		H = (C - f(C / 4) - f((8 * C + 13)/25) + 19 * G + 15) % 30,
 		// number of days from 21 March to the Paschal full moon
 		I = H - f(H/28) * (1 - f(29/(H + 1)) * f((21-G)/11)),
 		// weekday for the Paschal full moon
@@ -2562,12 +2949,17 @@ export function getEaster(){
         easter.solveDate[0]++;
     }
 
-    if (date.getMonth() >= easter.date[0] && date.getDate() >= easter.date[1] && date.getMonth() <= easter.endDate[0] && date.getDate() <= easter.endDate[1]){
+    let cur_day = date.getDate();
+    let cur_month = date.getMonth();
+
+    const isAfterBeginning = cur_month > easter.date[0] || (cur_month === easter.date[0] && cur_day >= easter.date[1]);
+    const isBeforeEnd = cur_month < easter.endDate[0] || (cur_month === easter.endDate[0] && cur_day <= easter.endDate[1]);
+    if (isAfterBeginning && isBeforeEnd){
         easter.active = true;
-        if (date.getMonth() >= easter.hintDate[0] && date.getDate() >= easter.hintDate[1] && date.getMonth() <= easter.endDate[0] && date.getDate() <= easter.endDate[1]){
+        if (cur_month >= easter.hintDate[0] && cur_day >= easter.hintDate[1] && cur_month <= easter.endDate[0] && cur_day <= easter.endDate[1]){
             easter.hint = true;
         }
-        if (date.getMonth() >= easter.solveDate[0] && date.getDate() >= easter.solveDate[1] && date.getMonth() <= easter.endDate[0] && date.getDate() <= easter.endDate[1]){
+        if (cur_month >= easter.solveDate[0] && cur_day >= easter.solveDate[1] && cur_month <= easter.endDate[0] && cur_day <= easter.endDate[1]){
             easter.solve = true;
         }
     }
@@ -2636,24 +3028,37 @@ export function shrineBonusActive() {
 
 export function getShrineBonus(type) {
 	let shrine_bonus = {
-		mult: 1,
-		add: 0
+        mult: 1,
+        add: 0,
+        active: false
 	};
 
 	if (shrineBonusActive()){
 		switch(type){
 			case 'metal':
-				shrine_bonus.mult += +(global.city.shrine.metal / 100 * traits.magnificent.vars()[3]);
+                let metal = global.city.shrine.metal;
+                if ((global.city.calendar.moon >= 7 && global.city.calendar.moon < 14) || global.city.calendar.moon === 14){ metal += global.city.shrine.cycle; }
+				shrine_bonus.mult += +(metal / 100 * traits.magnificent.vars()[3]);
+                if (metal > 0){ shrine_bonus.active = true; }
 				break;
 			case 'tax':
-				shrine_bonus.mult += +(global.city.shrine.tax / 100 * traits.magnificent.vars()[2]);
+                let tax = global.city.shrine.tax;
+                if (global.city.calendar.moon >= 21 || global.city.calendar.moon === 14){ tax += global.city.shrine.cycle; }
+				shrine_bonus.mult += +(tax / 100 * traits.magnificent.vars()[2]);
+                if (tax > 0){ shrine_bonus.active = true; }
 				break;
 			case 'know':
-                shrine_bonus.add += +(global.city.shrine.know * traits.magnificent.vars()[0]);
-                shrine_bonus.mult += +(global.city.shrine.know * traits.magnificent.vars()[1] / 100);
+                let know = global.city.shrine.know;
+                if ((global.city.calendar.moon > 14 && global.city.calendar.moon <= 21) || global.city.calendar.moon === 14){ know += global.city.shrine.cycle; }
+                shrine_bonus.add += +(know* traits.magnificent.vars()[0]);
+                shrine_bonus.mult += +(know * traits.magnificent.vars()[1] / 100);
+                if (know > 0){ shrine_bonus.active = true; }
 				break;
 			case 'morale':
-				shrine_bonus.add += global.city.shrine.morale * traits.magnificent.vars()[4];
+                let morale = global.city.shrine.morale;
+                if ((global.city.calendar.moon > 0 && global.city.calendar.moon <= 7) || global.city.calendar.moon === 14){ morale += global.city.shrine.cycle; }
+				shrine_bonus.add += morale * traits.magnificent.vars()[4];
+                if (morale > 0){ shrine_bonus.active = true; }
 				break;
 			default:
 				break;
@@ -2681,9 +3086,14 @@ const valAdjust = {
     unfathomable: false,
     darkness: false,
     living_tool: false,
+    empowered: false,
+    living_materials: true,
+    blurry: true,
+    playful: true,
+    ghostly: true,
 };
 
-function getTraitVals(trait,rank){
+function getTraitVals(trait, rank, species){
     let vals = traits[trait].hasOwnProperty('vars') ? traits[trait].vars(rank) : [];
     if (valAdjust.hasOwnProperty(trait)){
         if (trait === 'fibroblast'){
@@ -2708,65 +3118,106 @@ function getTraitVals(trait,rank){
             vals = [14 - vals[0], vals[0]];
         }
         else if (trait === 'hooved'){
-            vals.unshift(hoovedRename());
+            vals.unshift(hoovedRename(false, species));
         }
         else if (trait === 'anthropophagite'){
             vals = [vals[0] * 10000];
+        }
+        else if (trait === 'living_materials'){
+            vals = [global.resource.Lumber.name, global.resource.Plywood.name, global.resource.Furs.name, loc('resource_Amber_name')];
+        }
+        else if (trait === 'blurry'){
+            if (global.race['warlord']){
+                vals = [+((100/(100-vals[0])-1)*100).toFixed(1)];
+            }
+        }
+        else if (trait === 'playful'){
+            if (global.race['warlord']){
+                vals = [vals[0] * 100, global.resource.Furs.name];
+            }
+        }
+        else if (trait === 'ghostly'){
+            if (global.race['warlord']){
+                vals = [vals[0], +((vals[1] - 1) * 100).toFixed(0), global.resource.Soul_Gem.name];
+            }
         }
         else if (!valAdjust[trait]){
             vals = [];
         }
     }
+    else if (trait === 'elemental'){
+        switch (traits.elemental.vars(rank)[0]){
+            case 'electric':
+                vals = [loc(`element_electric`), traits.elemental.vars(rank)[1], traits.elemental.vars(rank)[5]];
+                break;
+            case 'acid':
+                vals = [loc(`element_acid`), traits.elemental.vars(rank)[2], traits.elemental.vars(rank)[5]];
+                break;
+            case 'fire':
+                vals = [loc(`element_fire`), traits.elemental.vars(rank)[3], traits.elemental.vars(rank)[5]];
+                break;
+            case 'frost':
+                vals = [loc(`element_frost`), traits.elemental.vars(rank)[4], traits.elemental.vars(rank)[5], loc('city_biolab')];
+                break;
+        }
+    }
     return vals;
 }
 
-export function hoovedRename(style){
-    if (global.race['sludge']){
+export function hoovedRename(style, species=global.race.species){
+    let type = species === global.race.species ? global.race.maintype || races[species].type : races[species].type;
+    if (species === 'sludge'){
         return style ? 'craft' : loc('resource_Beaker_name');
     }
-    else if (global.race.species === 'cath'){
+    else if (species === 'cath'){
         return style ? 'craft' : loc('resource_Box_name');
     }
-    else if (global.race.species === 'wolven'){
+    else if (species === 'wolven'){
         return style ? 'craft' : loc('resource_ChewToy_name');
     }
-    else if (global.race.species === 'dracnid'){
+    else if (species === 'dracnid'){
         return style ? 'craft' : loc('resource_Hoard_name');
     }
-    else if (global.race.species === 'seraph'){
+    else if (species === 'seraph'){
         return style ? 'forge' : loc('resource_Halo_name');
     }
-    else if (global.race.species === 'cyclops'){
+    else if (species === 'cyclops'){
         return style ? 'craft' : loc('resource_Monocle_name');
     }
-    else if (global.race.species === 'kobold'){
+    else if (species === 'kobold'){
         return style ? 'craft' : loc('resource_Candle_name');
     }
-    else if (global.race.species === 'tuskin'){
+    else if (species === 'tuskin'){
         return style ? 'craft' : loc('resource_Goggles_name');
     }
-    else if (global.race.species === 'sharkin'){
+    else if (species === 'sharkin'){
         return style ? 'craft' : loc('resource_ToothSharpener_name');
     }
-    else if (races[global.race.species].type === 'humanoid'){
+    else if (species === 'beholder'){
+        return style ? 'craft' : loc('resource_ContactLens_name');
+    }
+    else if (species === 'djinn'){
+        return style ? 'craft' : loc('resource_Bottle_name');
+    }
+    else if (races[species].type === 'humanoid'){
         return style ? 'craft' : loc('resource_Sandals_name');
     }
-    else if (races[global.race.species].type === 'avian'){
+    else if (races[species].type === 'avian'){
         return style ? 'craft' : loc('resource_Perch_name');
     }
-    else if (races[global.race.species].type === 'plant'){
+    else if (races[species].type === 'plant'){
         return style ? 'craft' : loc('resource_Planter_name');
     }
-    else if (races[global.race.species].type === 'fungi'){
+    else if (races[species].type === 'fungi'){
         return style ? 'craft' : loc('resource_DampCloth_name');
     }
-    else if (races[global.race.species].type === 'reptilian'){
+    else if (races[species].type === 'reptilian'){
         return style ? 'craft' : loc('resource_HeatRock_name');
     }
-    else if (races[global.race.species].type === 'fey'){
+    else if (races[species].type === 'fey'){
         return style ? 'craft' : loc('resource_PixieDust_name');
     }
-    else if (races[global.race.species].type === 'synthetic'){
+    else if (races[species].type === 'synthetic'){
         return style ? 'craft' : loc('resource_Battery_name');
     }
     else {
@@ -2793,7 +3244,7 @@ const traitExtra = {
         loc(`wiki_trait_effect_sniper_ex1`),
     ],
     hooved: [
-        loc(`wiki_trait_effect_hooved_ex1`,[hoovedRename(false)]),
+        function(opts){return loc(`wiki_trait_effect_hooved_ex1`,[hoovedRename(false, opts.species)])},
         loc(`wiki_trait_effect_hooved_ex2`,[
             `<span class="has-text-warning">${global.resource.hasOwnProperty('Lumber') ? global.resource.Lumber.name : loc('resource_Lumber_name')}</span>`,
             `<span class="has-text-warning">${global.resource.hasOwnProperty('Copper') ? global.resource.Copper.name : loc('resource_Copper_name')}</span>`,
@@ -2804,7 +3255,7 @@ const traitExtra = {
             12,75,150,500,5000
         ]),
         loc(`wiki_trait_effect_hooved_ex3`),
-        loc(`wiki_trait_effect_hooved_ex4`,[`<span class="has-text-warning">${5}</span>`,hoovedRename(false)]),
+        function(opts){return loc(`wiki_trait_effect_hooved_ex4`,[`<span class="has-text-warning">${5}</span>`,hoovedRename(false, opts.species)])},
         loc(`wiki_trait_effect_hooved_ex5`,[
             `<span class="has-text-warning">${global.resource.hasOwnProperty('Lumber') ? global.resource.Lumber.name : loc('resource_Lumber_name')}</span>`,
             `<span class="has-text-warning">${global.resource.hasOwnProperty('Copper') ? global.resource.Copper.name : loc('resource_Copper_name')}</span>`
@@ -2836,33 +3287,39 @@ function rName(r){
     return `<span class="has-text-warning">${res}</span>`;
 }
 
-export function getTraitDesc(info,trait,opts){
+const altTraitDesc = {
+    befuddle: 'warlord',
+    blurry: 'warlord',
+    ghostly: 'warlord',
+    playful: 'warlord',
+};
+
+export function getTraitDesc(info, trait, opts){
     let fanatic = opts['fanatic'] || false;
-    let tpage = opts['tpage'] || false;
+    let tpage = opts['tpage'] || false; // Trait page (on wiki)
+    let rpage = opts['rpage'] || false; // Races page (on wiki)
     let trank = opts['trank'] || false;
     let wiki = opts['wiki'] || false;
+    let species = opts['species']; // Intentionally keep undefined, not false, when undefined
     let rank = '';
 
-    let traitName = traitSkin('name',trait);
-    let traitDesc = traitSkin('desc',trait);
+    let traitName = traitSkin('name', trait, species);
+    let traitDesc = traitSkin('desc', trait, species);
 
     if (tpage && ['genus','major'].includes(traits[trait].type)){
         rank = `<span><span role="button" @click="down()">&laquo;</span><span class="has-text-warning">${loc(`wiki_trait_rank`)} {{ rank }}</span><span role="button" @click="up()">&raquo;</span></span>`;
     }
-    if (wiki){
+    if (tpage || rpage){
         info.append(`<div class="type"><h2 class="has-text-warning">${traitName}</h2>${rank}</div>`);
-    }
-    if (wiki){
         if (tpage && traits[trait].hasOwnProperty('val')){
             info.append(`<div class="type has-text-caution">${loc(`wiki_trait_${traits[trait].type}`)}<span>${loc(`wiki_trait_value`,[traits[trait].val])}</span></div>`);
         }
         else {
             info.append(`<div class="type has-text-caution">${loc(`wiki_trait_${traits[trait].type}`)}</div>`);
         }
-    }
-
-    if (fanatic && wiki){
-        info.append(`<div class="has-text-danger">${loc(`wiki_trait_fanaticism`,[fanatic])}</div>`);
+        if (fanatic){
+            info.append(`<div class="has-text-danger">${loc(`wiki_trait_fanaticism`,[fanatic])}</div>`);
+        }
     }
 
     info.append(`<div class="desc">${traitDesc}</div>`);
@@ -2876,11 +3333,28 @@ export function getTraitDesc(info,trait,opts){
     }
     else {
         if (wiki || (global.stats.feat['journeyman'] && global.stats.achieve['seeder'] && global.stats.achieve.seeder.l > 0)){
-            info.append(`<div class="has-text-${color} effect">${loc(`wiki_trait_effect_${trait}`,getTraitVals(trait,trank))}</div>`);
+            let trait_desc = '';
+            if (trait === 'elemental'){
+                trait_desc = loc(`wiki_trait_effect_${trait}_${traits.elemental.vars()[0]}`, getTraitVals(trait, trank, species));
+            }
+            else {
+                if (global?.race?.universe === 'evil' && global?.civic?.govern?.type != 'theocracy' && ['spiritual','blasphemous'].includes(trait)){
+                    let alt_trait = trait === 'spiritual' ? 'manipulator' : 'blasphemous_evil';
+                    trait_desc = loc(`wiki_trait_effect_${alt_trait}`, getTraitVals(trait, trank, species));
+                }
+                else {
+                    let key = altTraitDesc[trait] && global.race.hasOwnProperty(altTraitDesc[trait]) ? altTraitDesc[trait] : 'effect';
+                    trait_desc = loc(`wiki_trait_${key}_${trait}`, getTraitVals(trait, trank, species));
+                }
+            }
+            info.append(`<div class="has-text-${color} effect">${trait_desc}</div>`);
         }
     }
-    if (traitExtra[trait] && wiki){
+    if (traitExtra[trait] && (tpage || rpage)){
         traitExtra[trait].forEach(function(te){
+            if (typeof te !== 'string'){
+                te = te(opts);
+            }
             info.append(`<div class="effect">${te}</div>`);
         });
     }
@@ -2892,10 +3366,21 @@ export function getTraitDesc(info,trait,opts){
             data: data,
             methods: {
                 getTraitDesc(rk){
-                    return loc(`wiki_trait_effect_${trait}`,getTraitVals(trait,rk));
+                    if (trait === 'elemental'){
+                        return loc(`wiki_trait_effect_${trait}_${traits.elemental.vars()[0]}`, getTraitVals(trait, rk, species));
+                    }
+                    else if (global?.race?.universe === 'evil' && global?.civic?.govern?.type != 'theocracy' && ['spiritual','blasphemous'].includes(trait)){
+                        let alt_trait = trait === 'spiritual' ? 'manipulator' : 'blasphemous_evil';
+                        return loc(`wiki_trait_effect_${alt_trait}`, getTraitVals(trait, trank, species));
+                    }
+                    let key = altTraitDesc[trait] && global.race.hasOwnProperty(altTraitDesc[trait]) ? altTraitDesc[trait] : 'effect';
+                    return loc(`wiki_trait_${key}_${trait}`, getTraitVals(trait, rk, species));
                 },
                 up(){
                     switch (data.rank){
+                        case 0.1:
+                            data.rank = 0.25;
+                            break;
                         case 0.25:
                             data.rank = 0.5;
                             break;
@@ -2909,14 +3394,20 @@ export function getTraitDesc(info,trait,opts){
                             data.rank =  3;
                             break;
                         case 3:
-                            data.rank =  3;
+                            data.rank =  4;
+                            break;
+                        case 4:
+                            data.rank =  4;
                             break;
                     }
                 },
                 down(){
                     switch (data.rank){
+                        case 0.1:
+                            data.rank = 0.1;
+                            break;
                         case 0.25:
-                            data.rank = 0.25;
+                            data.rank = 0.1;
                             break;
                         case 0.5:
                             data.rank =  0.25;
@@ -2929,6 +3420,9 @@ export function getTraitDesc(info,trait,opts){
                             break;
                         case 3:
                             data.rank =  2;
+                            break;
+                        case 4:
+                            data.rank =  3;
                             break;
                     }
                 },

@@ -7,10 +7,11 @@ import { defineJobs, } from './jobs.js';
 import { clearSpyopDrag } from './governor.js';
 import { defineIndustry, setPowerGrid, gridDefs, clearGrids } from './industry.js';
 import { defineGovernment, defineGarrison, buildGarrison, commisionGarrison, foreignGov } from './civics.js';
-import { races, shapeShift, renderPsychicPowers } from './races.js';
+import { races, shapeShift, renderPsychicPowers, renderSupernatural } from './races.js';
 import { drawEvolution, drawCity, drawTech, resQueue, clearResDrag } from './actions.js';
 import { renderSpace, ascendLab, terraformLab } from './space.js';
 import { renderFortress, buildFortress, drawMechLab, clearMechDrag, drawHellObservations } from './portal.js';
+import { renderEdenic } from './edenic.js';
 import { drawShipYard, clearShipDrag, renderTauCeti } from './truepath.js';
 import { arpa, clearGeneticsDrag } from './arpa.js';
 
@@ -47,7 +48,12 @@ export function mainVue(){
                     URL.revokeObjectURL(a.href);
                 };
                 const date = new Date();
-                downloadToFile(window.exportGame(), `evolve-${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}-${date.getHours()}-${date.getMinutes()}.txt`, 'text/plain');
+                const year = date.getFullYear();
+                const month = (date.getMonth() + 1).toFixed(0).padStart(2, '0');
+                const day = date.getDate().toFixed(0).padStart(2, '0');
+                const hour = date.getHours().toFixed(0).padStart(2, '0');
+                const minute = date.getMinutes().toFixed(0).padStart(2, '0');
+                downloadToFile(window.exportGame(), `evolve-${year}-${month}-${day}-${hour}-${minute}.txt`, 'text/plain');
             },
             importStringFile(){ 
                 let file = document.getElementById("stringPackFile").files[0];
@@ -138,6 +144,13 @@ export function mainVue(){
             numNotation(notation){
                 global.settings.affix = notation;
             },
+            setQueueStyle(style){
+                global.settings.queuestyle = style;
+                updateQueueStyle();
+            },
+            setQueueResize(mode) {
+                global.settings.q_resize = mode;
+            },
             icon(icon){
                 global.settings.icon = icon;
                 save.setItem('evolved',LZString.compressToUTF16(JSON.stringify(global)));
@@ -194,6 +207,8 @@ export function mainVue(){
                         return loc(`metric`);
                     case 'sci':
                         return loc(`scientific`);
+                    case 'eng':
+                        return loc(`engineering`);
                     case 'sln':
                         return loc(`sln`);
                 }
@@ -201,7 +216,7 @@ export function mainVue(){
         }
     });
 
-    ['1','3','4','5','6','7','8','9','10','11','12','13','14','15','16'].forEach(function(k){
+    ['1','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17'].forEach(function(k){
         popover(`settings${k}`, function(){
                 return loc(`settings${k}`);
             },
@@ -266,9 +281,23 @@ function tabLabel(lbl){
             return loc('tab_old_sr_res');
         case 'new_sr':
             return loc('tab_new_sr_res');
+        case 'tab_mech':
+            return global.race['warlord'] ? loc('tab_artificer')  : loc(lbl);
         default:
             return loc(lbl);
     }
+}
+
+function updateQueueStyle(){
+    const buildingQueue = $('#buildQueue');
+    ['standardqueuestyle', 'listqueuestyle', 'bulletlistqueuestyle', 'numberedlistqueuestyle']
+        .forEach(qstyle => {
+            if (global.settings.queuestyle === qstyle) {
+                buildingQueue.addClass(qstyle);
+            } else {
+                buildingQueue.removeClass(qstyle);
+            }
+        });
 }
 
 export function initTabs(){
@@ -361,6 +390,12 @@ export function loadTab(tab){
                             <span aria-hidden="true">{{ 'tab_tauceti' | label }}</span>
                         </template>
                     </b-tab-item>
+                    <b-tab-item id="eden" :visible="s.showEden">
+                        <template slot="header">
+                            <h2 class="is-sr-only">{{ 'tab_eden' | label }}</h2>
+                            <span aria-hidden="true">{{ 'tab_eden' | label }}</span>
+                        </template>
+                    </b-tab-item>
                 </b-tabs>`);
                 vBind({
                     el: `#mTabCivil`,
@@ -377,6 +412,7 @@ export function loadTab(tab){
                                 clearElement($(`#portal`));
                                 clearElement($(`#outerSol`));
                                 clearElement($(`#tauCeti`));
+                                clearElement($(`#eden`));
                                 switch (tab){
                                     case 0:
                                         drawCity();
@@ -392,6 +428,9 @@ export function loadTab(tab){
                                         break;
                                     case 6:
                                         renderTauCeti();
+                                        break;
+                                    case 7:
+                                        renderEdenic();
                                         break;
                                 }
                             }
@@ -409,11 +448,16 @@ export function loadTab(tab){
                     renderSpace();
                     renderFortress();
                     renderTauCeti();
+                    renderEdenic();
                 }
                 if (global.race['noexport']){
                     if (global.race['noexport'] === 'Race'){
                         clearElement($(`#city`));
                         ascendLab();
+                    }
+                    else if (global.race['noexport'] === 'Hybrid'){
+                        clearElement($(`#city`));
+                        ascendLab(true);
                     }
                     else if (global.race['noexport'] === 'Planet'){
                         clearElement($(`#city`));
@@ -471,6 +515,12 @@ export function loadTab(tab){
                             <span aria-hidden="true">{{ 'tab_psychic' | label }}</span>
                         </template>
                     </b-tab-item>
+                    <b-tab-item id="supernatural" class="supernaturalTab" :visible="s.showWish">
+                        <template slot="header">
+                            <h2 class="is-sr-only">{{ 'tab_supernatural' | label }}</h2>
+                            <span aria-hidden="true">{{ 'tab_supernatural' | label }}</span>
+                        </template>
+                    </b-tab-item>
                 </b-tabs>`);
                 vBind({
                     el: `#mTabCivic`,
@@ -491,6 +541,7 @@ export function loadTab(tab){
                                 clearElement($(`#mechLab`));
                                 clearElement($(`#dwarfShipYard`));
                                 clearElement($(`#psychicPowers`));
+                                clearElement($(`#supernatural`));
                                 switch (tab){
                                     case 0:
                                         {
@@ -522,7 +573,9 @@ export function loadTab(tab){
                                     case 3:
                                         if (global.race.species !== 'protoplasm' && !global.race['start_cataclysm']){
                                             defineGarrison();
-                                            buildFortress($('#fortress'),false);
+                                            if (!global.race['warlord']){
+                                                buildFortress($('#fortress'),false);
+                                            }
                                         }
                                         break;
                                     case 4:
@@ -538,6 +591,11 @@ export function loadTab(tab){
                                     case 6:
                                         if (global.race['psychic'] && global.tech['psychic'] && global.race.species !== 'protoplasm'){
                                             renderPsychicPowers();
+                                        }
+                                        break;
+                                    case 7:
+                                        if (((global.race['wish'] && global.tech['wish']) || global.race['ocular_power']) && global.race.species !== 'protoplasm'){
+                                            renderSupernatural();
                                         }
                                         break;
                                 }
@@ -564,7 +622,9 @@ export function loadTab(tab){
                 if (global.race.species !== 'protoplasm' && !global.race['start_cataclysm']){
                     defineGarrison();
                     buildGarrison($('#c_garrison'),false);
-                    buildFortress($('#fortress'),false);
+                    if (!global.race['warlord']){
+                        buildFortress($('#fortress'),false);
+                    }
                     foreignGov();
                     drawMechLab();
                     if (global.race['truepath']){
@@ -572,6 +632,9 @@ export function loadTab(tab){
                     }
                     if (global.race['psychic'] && global.tech['psychic']){
                         renderPsychicPowers();
+                    }
+                    if ((global.race['wish'] && global.tech['wish']) || global.race['ocular_power']){
+                        renderSupernatural();
                     }
                 }
                 if (global.race['shapeshifter']){
@@ -835,7 +898,12 @@ export function index(){
     // Top Bar
     $('body').append(`<div id="topBar" class="topBar">
         <h2 class="is-sr-only">Top Bar</h2>
-        <span class="planetWrap"><span class="planet">{{ race.species | planet }}</span><span class="universe" v-show="showUniverse()">{{ race.universe | universe }}</span><span class="simulation" v-show="showSim()">${loc(`evo_challenge_simulation`)}</span></span>
+        <span class="planetWrap">
+            <span class="planet">{{ race.species | planet }}</span>
+            <span class="universe" v-show="showUniverse()">{{ race.universe | universe }}</span>
+            <span class="pet" id="playerPet" v-show="showPet()" @click="petPet()"></span>
+            <span class="simulation" v-show="showSim()">${loc(`evo_challenge_simulation`)}</span>
+        </span>
         <span class="calendar">
             <span class="infoTimer" id="infoTimer"></span>
             <span v-show="city.calendar.day">
@@ -843,10 +911,13 @@ export function index(){
                 <b-tooltip :label="moon()" :aria-label="moon()" position="is-bottom" size="is-small" multilined animated><i id="moon" class="moon wi"></i></b-tooltip>
                 <span class="year">${loc('year')} <span class="has-text-warning">{{ city.calendar.year }}</span></span>
                 <span class="day">${loc('day')} <span class="has-text-warning">{{ city.calendar.day }}</span></span>
+                <span class="season">{{ season() }}</span>
                 <b-tooltip :label="weather()" :aria-label="weather()" position="is-bottom" size="is-small" multilined animated><i id="weather" class="weather wi"></i></b-tooltip>
                 <b-tooltip :label="temp()" :aria-label="temp()" position="is-bottom" size="is-small" multilined animated><i id="temp" class="temp wi"></i></b-tooltip>
                 <b-tooltip :label="atRemain()" v-show="s.at" :aria-label="atRemain()" position="is-bottom" size="is-small" multilined animated><span class="atime has-text-caution">{{ s.at | remain }}</span></b-tooltip>
-                <span id="pausegame" class="atime" role="button" @click="pause" :aria-label="pausedesc()"></span>
+                <span role="button" class="atime" style="padding: 0 0.5rem; margin-left: 0.5rem; cursor: pointer" @click="pause" :aria-label="pausedesc()">
+                    <span id="pausegame"></span>
+                </span>
             </span>
         </span>
         <span class="version" id="versionLog"><a href="wiki.html#changelog" target="_blank"></a></span>
@@ -866,7 +937,7 @@ export function index(){
             <div class="power"><span id="powerStatus" class="has-text-warning" v-show="city.powered"><span>MW</span> <span id="powerMeter" class="meter">{{ city.power | replicate | approx }}</span></span></div>
         </div>
         <div id="sideQueue">
-            <div id="buildQueue" class="bldQueue has-text-info" v-show="display"></div>
+            <div id="buildQueue" class="bldQueue standardqueuestyle has-text-info" v-show="display"></div>
             <div id="msgQueue" class="msgQueue vscroll has-text-info" aria-live="polite">
                 <div id="msgQueueHeader">
                     <h2 class="has-text-success">${loc('message_log')}</h2>
@@ -894,7 +965,7 @@ export function index(){
     </div>`);
     message_filters.forEach(function (filter){
         $(`#msgQueueFilters`).append(`
-            <span id="msgQueueFilter-${filter}" class="${filter === 'all' ? 'is-active' : ''}" @click="swapFilter('${filter}')" v-show="s.${filter}.vis">${loc('message_log_' + filter)}</span>
+            <span id="msgQueueFilter-${filter}" class="${filter === 'all' ? 'is-active' : ''}" aria-disabled="${filter === 'all' ? 'true' : 'false'}" @click="swapFilter('${filter}')" v-show="s.${filter}.vis" role="button">${loc('message_log_' + filter)}</span>
         `);
     });
     vBind({
@@ -906,13 +977,13 @@ export function index(){
         methods: {
             swapFilter(filter){
                 if (message_logs.view !== filter){
-                    $(`#msgQueueFilter-${message_logs.view}`).removeClass('is-active');
-                    $(`#msgQueueFilter-${filter}`).addClass('is-active');
+                    $(`#msgQueueFilter-${message_logs.view}`).removeClass('is-active').attr('aria-disabled', 'false');
+                    $(`#msgQueueFilter-${filter}`).addClass('is-active').attr('aria-disabled', 'true');
                     message_logs.view = filter;
                     let queue = $(`#msgQueueLog`);
                     clearElement(queue);
                     message_logs[filter].forEach(function (msg){
-                        queue.append($('<p class="has-text-'+msg.color+'">'+msg.msg+'</p>'));
+                        queue.append($('<p class="has-text-'+msg.color+'"></p>').text(msg.msg));
                     });
                 }
             },
@@ -1023,7 +1094,7 @@ export function index(){
                                                 let queue = $(`#msgQueueLog`);
                                                 clearElement(queue);
                                                 message_logs[filt].forEach(function (msg){
-                                                    queue.append($('<p class="has-text-'+msg.color+'">'+msg.msg+'</p>'));
+                                                    queue.append($('<p class="has-text-'+msg.color+'"></p>').text(msg.msg));
                                                 });
                                             }
                                         });
@@ -1158,31 +1229,35 @@ export function index(){
 
     let iconlist = '';
     let icons = [
-        {i: 'nuclear',      f: 'steelem',           r: 2 },
-        {i: 'zombie',       f: 'the_misery',        r: 2 },
-        {i: 'fire',         f: 'ill_advised',       r: 2 },
-        {i: 'mask',         f: 'friday',            r: 1 },
-        {i: 'skull',        f: 'demon_slayer',      r: 2 },
-        {i: 'taijitu',      f: 'equilibrium',       r: 2 },
-        {i: 'martini',      f: 'utopia',            r: 2 },
-        {i: 'lightbulb',    f: 'energetic',         r: 2 },
-        {i: 'trash',        f: 'garbage_pie',       r: 2 },
-        {i: 'banana',       f: 'banana',            r: 2 },
-        {i: 'turtle',       f: 'finish_line',       r: 2 },
-        {i: 'floppy',       f: 'digital_ascension', r: 2 },
-        {i: 'slime',        f: 'slime_lord',        r: 2 },
-        {i: 'lightning',    f: 'annihilation',      r: 2 },
-        {i: 'heart',        f: 'valentine',         r: 1 },
-        {i: 'clover',       f: 'leprechaun',        r: 1 },
-        {i: 'bunny',        f: 'easter',            r: 1 },
-        {i: 'egg',          f: 'egghunt',           r: 1 },
-        {i: 'rocket',       f: 'launch_day',        r: 1 },
-        {i: 'sun',          f: 'solstice',          r: 1 },
-        {i: 'firework',     f: 'firework',          r: 1 },
-        {i: 'ghost',        f: 'halloween',         r: 1 },
-        {i: 'candy',        f: 'trickortreat',      r: 1 },
-        {i: 'turkey',       f: 'thanksgiving',      r: 1 },
-        {i: 'present',      f: 'xmas',              r: 1 }
+        {i: 'nuclear',      f: 'steelem',               r: 2 },
+        {i: 'zombie',       f: 'the_misery',            r: 2 },
+        {i: 'fire',         f: 'ill_advised',           r: 2 },
+        {i: 'mask',         f: 'friday',                r: 1 },
+        {i: 'skull',        f: 'demon_slayer',          r: 2 },
+        {i: 'taijitu',      f: 'equilibrium',           r: 2 },
+        {i: 'martini',      f: 'utopia',                r: 2 },
+        {i: 'lightbulb',    f: 'energetic',             r: 2 },
+        {i: 'trash',        f: 'garbage_pie',           r: 2 },
+        {i: 'banana',       f: 'banana',                r: 2 },
+        {i: 'turtle',       f: 'finish_line',           r: 2 },
+        {i: 'floppy',       f: 'digital_ascension',     r: 2 },
+        {i: 'slime',        f: 'slime_lord',            r: 2 },
+        {i: 'sludge',       f: 'grand_death_tour',      r: 2 },
+        {i: 'lightning',    f: 'annihilation',          r: 2 },
+        {i: 'trophy',       f: 'wish',                  r: 2 },
+        {i: 'robot',        f: 'planned_obsolescence',  r: 2 },
+        {i: 'heart',        f: 'valentine',             r: 1 },
+        {i: 'clover',       f: 'leprechaun',            r: 1 },
+        {i: 'bunny',        f: 'easter',                r: 1 },
+        {i: 'egg',          f: 'egghunt',               r: 1 },
+        {i: 'rocket',       f: 'launch_day',            r: 1 },
+        {i: 'sun',          f: 'solstice',              r: 1 },
+        {i: 'firework',     f: 'firework',              r: 1 },
+        {i: 'ghost',        f: 'halloween',             r: 1 },
+        {i: 'candy',        f: 'trickortreat',          r: 1 },
+        {i: 'turkey',       f: 'thanksgiving',          r: 1 },
+        {i: 'meat',         f: 'immortal',              r: 1 },
+        {i: 'present',      f: 'xmas',                  r: 1 },
     ];
 
     let irank = alevel();
@@ -1243,6 +1318,7 @@ export function index(){
                 <b-dropdown-item v-on:click="setTheme('dracula')">{{ 'theme_dracula' | label }}</b-dropdown-item>
                 ${hideEgg}
             </b-dropdown>
+
             <span>{{ 'units' | label }} </span>
             <b-dropdown hoverable>
                 <button class="button is-primary" slot="trigger">
@@ -1251,6 +1327,7 @@ export function index(){
                 </button>
                 <b-dropdown-item v-on:click="numNotation('si')">{{ 'metric' | label }}</b-dropdown-item>
                 <b-dropdown-item v-on:click="numNotation('sci')">{{ 'scientific' | label }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="numNotation('eng')">{{ 'engineering' | label }}</b-dropdown-item>
                 <b-dropdown-item v-on:click="numNotation('sln')">{{ 'sln' | label }}</b-dropdown-item>
                 ${hideTreat}
             </b-dropdown>
@@ -1285,6 +1362,20 @@ export function index(){
                 <b-dropdown-item v-on:click="font('large_log')">{{ 'large_log' | label }}</b-dropdown-item>
                 <b-dropdown-item v-on:click="font('large_all')">{{ 'large_all' | label }}</b-dropdown-item>
             </b-dropdown>
+        </div>
+
+        <div class="queue">
+            <span>{{ 'queuestyle' | label }} </span>
+            <b-dropdown hoverable>
+                <button class="button is-primary" slot="trigger">
+                    <span>{{ s.queuestyle | label }}</span>
+                    <i class="fas fa-sort-down"></i>
+                </button>
+                <b-dropdown-item v-on:click="setQueueStyle('standardqueuestyle')">{{ 'standardqueuestyle' | label }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="setQueueStyle('listqueuestyle')">{{ 'listqueuestyle' | label }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="setQueueStyle('bulletlistqueuestyle')">{{ 'bulletlistqueuestyle' | label }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="setQueueStyle('numberedlistqueuestyle')">{{ 'numberedlistqueuestyle' | label }}</b-dropdown-item>
+            </b-dropdown>
 
             <span class="settings15" aria-label="${loc('settings15')}">{{ 'q_merge' | label }} </span>
             <b-dropdown hoverable>
@@ -1296,10 +1387,24 @@ export function index(){
                 <b-dropdown-item v-on:click="q_merge('merge_nearby')">{{ 'merge_nearby' | label }}</b-dropdown-item>
                 <b-dropdown-item v-on:click="q_merge('merge_all')">{{ 'merge_all' | label }}</b-dropdown-item>
             </b-dropdown>
+
+            <span>{{ 'q_resize' | label }} </span>
+            <b-dropdown hoverable>
+                <button class="button is-primary" slot="trigger">
+                    <span>{{ 'q_resize_' + s.q_resize | label }}</span>
+                    <i class="fas fa-sort-down"></i>
+                </button>
+                <b-dropdown-item v-on:click="setQueueResize('auto')">{{ 'q_resize_auto' | label }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="setQueueResize('grow')">{{ 'q_resize_grow' | label }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="setQueueResize('shrink')">{{ 'q_resize_shrink' | label }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="setQueueResize('manual')">{{ 'q_resize_manual' | label }}</b-dropdown-item>
+            </b-dropdown>
         </div>
+
         <b-switch class="setting" v-model="s.pause" @input="unpause"><span class="settings12" aria-label="${loc('settings12')}">{{ 'pause' | label }}</span></b-switch>
         <b-switch class="setting" v-model="s.mKeys"><span class="settings1" aria-label="${loc('settings1')}">{{ 'm_keys' | label }}</span></b-switch>
         <b-switch class="setting" v-model="s.cLabels"><span class="settings5" aria-label="${loc('settings5')}">{{ 'c_cat' | label }}</span></b-switch>
+        <b-switch class="setting" v-model="s.alwaysPower"><span class="settings17" aria-label="${loc('settings17')}">{{ 'always_power' | label }}</span></b-switch>
         <b-switch class="setting" v-model="s.qKey"><span class="settings6" aria-label="${loc('settings6')}">{{ 'q_key' | label }}</span></b-switch>
         <b-switch class="setting" v-model="s.qAny"><span class="settings7" aria-label="${loc('settings7')}">{{ 'q_any' | label }}</span></b-switch>
         <b-switch class="setting" v-model="s.qAny_res"><span class="settings14" aria-label="${loc('settings14')}">{{ 'q_any_res' | label }}</span></b-switch>
@@ -1327,7 +1432,7 @@ export function index(){
         </div>
         <div class="stringPack setting">
             <button id="stringPack" class="button" @click="importStringFile">{{ 'load_string_pack' | label }}</button>
-            <input type="file" class="fileImport" id="stringPackFile" accept=".txt">
+            <input type="file" class="fileImport" id="stringPackFile" accept="text/plain, application/json">
             <button class="button right" @click="clearStringFile">{{ 'clear_string_pack' | label }}</button>
         </div>
         <div class="stringPack setting">

@@ -91,10 +91,13 @@ export const locales = {
     'en-US': 'English (US)',
     'es-ES': 'Spanish (ESP)',
     'pt-BR': 'Português (BR)',
+    'de-DE': 'Deutsch',
+    'it-IT': 'Italiano',
+    'ru-RU': 'Русский',
+    'cs-CZ': 'Čeština',
+    'pl-PL': 'Polski',
     'zh-CN': '简体中文',
     'zh-TW': '繁體中文',
     'ko-KR': '한국어',
-    'cs-CZ': 'Čeština',
-    'ru-RU': 'Русский',
     'im-PL': 'Igpay-Atinlay'
 };

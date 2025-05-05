@@ -128,13 +128,13 @@ export function challengesPage(content){
         }
 
         {   // Weak Genes
-            let weak_vals = global.race.universe === 'antimatter' ? [`20%`,`50%`,`50%`,`33%`] : [`50%`,`20%`,`50%`,`33%`];
+            let weak_vals = global.race.universe === 'antimatter' ? [`20%`,`50%`,`25%`,`12.5%`,`16.7%`] : [`50%`,`20%`,`10%`,`50%`,`33.3%`];
             infoBoxBuilder(genes,{ name: 'genes_weak', template: 'challenges', paragraphs: 5, break: [2,3,4,5], h_level: 2,
                 para_data: {
                     1: [weak_vals[0]],
                     2: [weak_vals[1]],
-                    3: [weak_vals[2]],
-                    4: [weak_vals[3]],
+                    3: [weak_vals[2], weak_vals[3]],
+                    4: [weak_vals[4]],
                     5: [loc(`wiki_challenges_gene`),loc(`evo_challenge_truepath`)]
                 },
                 data_link: {
@@ -144,6 +144,8 @@ export function challengesPage(content){
             subSideMenu('add',`challenges-gameplay`,'genes_weak',loc('wiki_challenges_genes_weak'));
         }
     }
+
+    sideMenu('gap');
     
     // Challenge Modes
     {   // Intro
@@ -343,6 +345,48 @@ export function challengesPage(content){
             subSideMenu('add',`challenges-gameplay`,'modes_sludge',loc('wiki_challenges_modes_sludge'));
         }
 
+        {   // Ultra Failed Experiment
+            let failed = infoBoxBuilder(modes,{ name: 'modes_ultra_sludge', template: 'challenges', paragraphs: 7, break: [3,4,5,6,7], h_level: 2,
+                para_data: {
+                    1: [loc(`evo_challenge_ultra_sludge`),loc(`wiki_challenges_challenge`),loc(`race_ultra_sludge`)],
+                    3: [loc(`race_ultra_sludge`),'10x',loc('trait_ooze_name')],
+                    4: [loc(`evo_challenge_ultra_sludge`)],
+                    5: [loc(`race_ultra_sludge`),loc(`wiki_resets_mad`)],
+                    6: [loc(`race_ultra_sludge`),loc(`wiki_resets_cataclysm`)],
+                    7: [loc(`wiki_challenges_scenarios_junker`)]
+                },
+                data_link: {
+                    1: [false,false,'wiki.html#races-species-ultra_sludge'],
+                    3: [false,false,'wiki.html#traits-species-major_ooze'],
+                    5: [false,'wiki.html#resets-prestige-mad']
+                }
+            });
+            addAchievements(failed,false,['extinct_ultra_sludge'],{gross: true});
+            addAchievements(failed,true,['grand_death_tour']);
+            addRequirements(failed,[
+                {
+                    text: `wiki_challenges_reqs_achieve`,
+                    subreqs: [
+                        {
+                            text: loc(`achieve_extinct_sludge_name`),
+                            color: global.stats.achieve['extinct_sludge'] ? true : false
+                        }
+                    ]
+                },
+                {
+                    text: `wiki_challenges_reqs_reset`,
+                    subreqs: [
+                        {
+                            text: loc(`wiki_resets_apotheosis`),
+                            color: global.stats.achieve['godslayer'] ? true : false,
+                            link: 'wiki.html#resets-prestige-apotheosis'
+                        }
+                    ]
+                }
+            ]);
+            subSideMenu('add',`challenges-gameplay`,'modes_ultra_sludge',loc('wiki_challenges_modes_ultra_sludge'));
+        }
+
         {   // Orbital Decay
             let orbit = infoBoxBuilder(modes,{ name: 'modes_orbitdecay', template: 'challenges', paragraphs: 14, break: [5,8,9,10,11,12,13,14], h_level: 2,
                 para_data: {
@@ -400,7 +444,31 @@ export function challengesPage(content){
             ]);
             subSideMenu('add',`challenges-gameplay`,'modes_witchhunter',loc('wiki_challenges_modes_witchhunter'));
         }
+
+        {   // Gravity Well
+            let gravity = infoBoxBuilder(modes,{ name: 'modes_gravity_well', template: 'challenges', paragraphs: 6, break: [4], h_level: 2,
+                para_data: {
+                    1: [loc(`evo_challenge_gravity_well`)],
+                }
+            });
+            addAchievements(gravity,false,['escape_velocity']);
+            addRequirements(gravity,[
+                {
+                    text: `wiki_challenges_reqs_reset`,
+                    subreqs: [
+                        {
+                            text: `${loc(`wiki_universe_heavy`)} ${loc(`wiki_resets_bioseed`)}`,
+                            color: global.stats.achieve['seeder'] && global.stats.achieve.seeder['h'] ? true : false,
+                            link: 'wiki.html#resets-prestige-bioseed'
+                        }
+                    ]
+                }
+            ]);
+            subSideMenu('add',`challenges-gameplay`,'modes_gravity_well',loc('wiki_challenges_modes_gravity_well'));
+        }
     }
+
+    sideMenu('gap');
     
     // Scenarios
     {   // Intro
@@ -529,6 +597,40 @@ export function challengesPage(content){
             subSideMenu('add',`challenges-gameplay`,'scenarios_banana',loc('wiki_challenges_scenarios_banana'));
         }
 
+        {   // Fasting
+            let fasting = infoBoxBuilder(scenarios,{ name: 'scenarios_fasting', template: 'challenges', paragraphs: 6, break: [1,2,3,4,5,6], h_level: 2,
+                para_data: {
+                    1: [loc(`evo_challenge_fasting`),loc(`wiki_challenges_scenario`)],
+                    2: [loc(`resource_Food_name`),0],
+                    3: [loc(`job_meditator`)],
+                    4: [loc(`city_tourist_center`)],
+                    5: [loc(`wiki_challenges_scenario`),loc(`achieve_endless_hunger_name`)],
+                    6: [loc(`tech_devilish_dish`)]
+                },
+                data_link: {
+                    4: ['wiki.html#planetary-structures-tourist_center'],
+                    5: [false, 'wiki.html#perks-prestige-endless_hunger'],
+                    6: ['wiki.html#hell-structures-devilish_dish'],
+                }
+            });
+            addAchievements(fasting,false,['endless_hunger']);
+            addAchievements(fasting,true,['immortal']);
+            addRequirements(fasting,[
+                {
+                    text: `wiki_challenges_reqs_reset`,
+                    subreqs: [
+                        {
+                            text: loc(`wiki_resets_infusion`),
+                            color: global.stats.achieve['corrupted'] ? true : false,
+                            link: 'wiki.html#resets-prestige-infusion'
+                        }
+                    ]
+                    
+                }
+            ]);
+            subSideMenu('add',`challenges-gameplay`,'scenarios_fasting',loc('wiki_challenges_scenarios_fasting'));
+        }
+
         {   // True Path
             let truth = infoBoxBuilder(scenarios,{ name: 'scenarios_truepath', template: 'challenges', paragraphs: 5, break: [5], h_level: 2,
                 para_data: {
@@ -645,6 +747,34 @@ export function challengesPage(content){
                 }
             ]);
             subSideMenu('add',`challenges-gameplay`,'scenarios_lone_survivor',loc('wiki_challenges_scenarios_lone_survivor'));
+        }
+
+        {   // Warlord
+            let lone = infoBoxBuilder(scenarios,{ name: 'scenarios_warlord', template: 'challenges', paragraphs: 10, break: [4,9,10], h_level: 2,
+                para_data: {
+                    1: [loc(`evo_challenge_warlord`),loc(`wiki_universe_evil`),loc(`wiki_challenges_scenario`),loc(`tab_portal`)],
+                    2: [loc(`race_hellspawn`)],
+                    9: [loc(`wiki_challenges_scenario`),loc(`wiki_resets_apotheosis`)],
+                    10: [loc(`wiki_resets_apotheosis`),loc(`wiki_universe_evil`)],
+                },
+                data_link: {
+                    4: [false,'wiki.html#resets-prestige-eden']
+                }
+            });
+            addAchievements(lone,false,['what_is_best']);
+            addRequirements(lone,[
+                {
+                    text: `wiki_challenges_reqs_reset`,
+                    subreqs: [
+                        {
+                            text: `${loc(`wiki_universe_evil`)} ${loc(`wiki_resets_apotheosis`)}`,
+                            color: global.stats?.achieve?.godslayer?.e > 0 ? true : false,
+                            link: 'wiki.html#resets-prestige-apotheosis'
+                        }
+                    ]
+                }
+            ]);
+            subSideMenu('add',`challenges-gameplay`,'scenarios_warlord',loc('wiki_challenges_scenarios_warlord'));
         }
     }
 }

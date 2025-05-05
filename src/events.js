@@ -1,12 +1,14 @@
 import { global, seededRandom, p_on, support_on, sizeApproximation } from './vars.js';
 import { loc } from './locale.js';
-import { races, traits, fathomCheck } from './races.js';
+import { races, traits, fathomCheck, blubberFill } from './races.js';
 import { govTitle, garrisonSize, armyRating } from './civics.js';
 import { housingLabel, drawTech, actions } from './actions.js';
+import { flib, drawPet } from './functions.js';
 import { tradeRatio } from './resources.js';
-import { checkControlling } from './civics.js';
+import { checkControlling, soldierDeath } from './civics.js';
 import { govActive } from './governor.js';
 import { unlockAchieve } from './achieve.js';
+import { jobScale } from './jobs.js';
 
 export const events = {
     dna_replication: {
@@ -80,12 +82,13 @@ export const events = {
         condition(){
             return global.city.ptrait.includes('flare') ? true : false;
         },
-        effect(){
+        effect(wiki){
             let at_risk = 0;
             let planet = races[global.race.species].home;
             if (global.race['cataclysm'] || global.race['orbit_decayed']){
                 if (global.space.hasOwnProperty('living_quarters')){
-                    at_risk += Math.round(support_on['living_quarters'] * actions.space.spc_red.living_quarters.citizens());
+                    let num_lq_on = wiki ? global.space.living_quarters.on : support_on['living_quarters'];
+                    at_risk += Math.round(num_lq_on * actions.space.spc_red.living_quarters.citizens());
                 }
                 planet = races[global.race.species].solar.red;
             }
@@ -97,7 +100,8 @@ export const events = {
                     at_risk += global.city.cottage.count * actions.city.cottage.citizens();
                 }
                 if (global.city.hasOwnProperty('apartment')){
-                    at_risk += p_on['apartment'] * actions.city.apartment.citizens();
+                    let num_apartment_on = wiki ? global.city.apartment.on : p_on['apartment'];
+                    at_risk += num_apartment_on * actions.city.apartment.citizens();
                 }
             }
             if (at_risk > global.resource[global.race.species].amount){
@@ -150,9 +154,8 @@ export const events = {
                 killed = Math.round(killed / 2);
                 wounded = Math.round(wounded / 2);
             }
-            global.civic.garrison.workers -= killed;
+            soldierDeath(killed);
             global.civic.garrison.wounded += wounded;
-            global.stats.died += killed;
             if (global.civic.garrison.wounded > global.civic.garrison.workers){
                 global.civic.garrison.wounded = global.civic.garrison.workers;
             }
@@ -206,9 +209,8 @@ export const events = {
                 killed = Math.round(killed / 2);
                 wounded = Math.round(wounded / 2);
             }
-            global.civic.garrison.workers -= killed;
+            soldierDeath(killed);
             global.civic.garrison.wounded += wounded;
-            global.stats.died += killed;
             if (global.civic.garrison.wounded > global.civic.garrison.workers){
                 global.civic.garrison.wounded = global.civic.garrison.workers;
             }
@@ -308,9 +310,8 @@ export const events = {
                 killed = Math.round(killed / 2);
                 wounded = Math.round(wounded / 2);
             }
-            global.civic.garrison.workers -= killed;
+            soldierDeath(killed);
             global.civic.garrison.wounded += wounded;
-            global.stats.died += killed;
             if (global.civic.garrison.wounded > global.civic.garrison.workers){
                 global.civic.garrison.wounded = global.civic.garrison.workers;
             }
@@ -539,7 +540,88 @@ export const events = {
         effect(){
             global.resource[global.race.species].amount--;
             global.civic.miner.workers--;
+            blubberFill(1);
             return loc('event_mine_collapse');
+        }
+    },
+    klepto: {
+        reqs: {
+            trait: 'rogue',
+            resource: 'Money'
+        },
+        type: 'major',
+        effect(){
+            let stealList = [];
+            [
+                'Money','Food','Lumber','Stone','Chrysotile','Crystal','Furs','Copper','Iron',
+                'Cement','Coal','Uranium','Aluminium','Steel','Titanium','Alloy','Polymer','Iridium',
+                'Neutronium','Adamantite','Infernite','Elerium','Nano_Tube','Graphene','Stanene',
+                'Bolognium','Vitreloy','Orichalcum','Asphodel_Powder','Elysanite','Unobtainium','Quantium',
+                'Plywood','Brick','Wrought_Iron','Sheet_Metal','Mythril','Aerogel','Nanoweave','Scarletite'
+            ].forEach(function(r){
+                if (global.resource[r].display){
+                    stealList.push(r);
+                }
+            });
+
+            let maxRoll = Math.round(global.stats.know / 25);
+            let res = stealList[Math.floor(seededRandom(0,stealList.length))];
+            if (global.resource[res].max > 0 && maxRoll > global.resource[res].max * traits.rogue.vars()[0] / 100){
+                maxRoll = Math.round(global.resource[res].max * traits.rogue.vars()[0] / 100);
+            }
+
+            let gain = Math.floor(seededRandom(1,maxRoll));
+            if (global.resource[res].max !== -1 && global.resource[res].amount + gain > global.resource[res].max){
+                global.resource[res].amount = global.resource[res].max;
+            }
+            else {
+                global.resource[res].amount += gain;
+            }
+
+            return res === 'Money' ? loc('event_klepto_money',[gain]) : loc('event_klepto',[gain,global.resource[res].name]);
+        }
+    },
+    chicken_feast:{ 
+        reqs: {
+            tech: 'primitive',
+            trait: 'chicken'
+        },
+        condition(){
+            if (global.resource[global.race.species].amount > 0){
+                return true;
+            }
+            return false;
+        },
+        type: 'major',
+        effect(){
+            let dead = Math.floor(seededRandom(2,jobScale(10)));
+            let type = Math.floor(seededRandom(0,10));
+            if (dead > global.resource[global.race.species].amount){ dead = global.resource[global.race.species].amount; }
+            global.resource[global.race.species].amount -= dead;
+            blubberFill(dead);
+            if(type === 7){
+                return loc('event_chicken',[loc(`event_chicken_eaten${type}`, [flib('name')]),dead,loc(`event_chicken_seasoning${Math.floor(seededRandom(0,10))}`)]);
+            }
+            return loc('event_chicken',[loc(`event_chicken_eaten${type}`),dead,loc(`event_chicken_seasoning${Math.floor(seededRandom(0,10))}`)]);
+        }
+    },
+    brawl:{ 
+        reqs: {
+            tech: 'primitive',
+            trait: 'aggressive'
+        },
+        condition(){
+            if (global.resource[global.race.species].amount > 0){
+                return true;
+            }
+            return false;
+        },
+        type: 'major',
+        effect(){
+            let dead = Math.floor(seededRandom(1,jobScale(traits.aggressive.vars()[0] + 1)));
+            if (dead > global.civic.garrison.workers){ dead = global.civic.garrison.workers; }
+            soldierDeath(dead);
+            return loc('event_brawl_s',[loc(`event_brawl${Math.floor(seededRandom(0,10))}`),dead]);
         }
     },
     m_curious: {
@@ -673,7 +755,46 @@ export const events = {
             global.resource[global.race.species].amount--;
             global.civic.scientist.workers--;
             global.civic.scientist.assigned--;
+            blubberFill(1);
             return loc(`witch_hunter_witch_hunt`);
+        }
+    },
+    chicken:{ 
+        reqs: {
+            tech: 'primitive',
+            trait: 'chicken'
+        },
+        condition(){
+            if (global.resource[global.race.species].amount > 0){
+                return true;
+            }
+            return false;
+        },
+        type: 'minor',
+        effect(){
+            global.resource[global.race.species].amount--;
+            blubberFill(1);
+            return loc('event_chicken',[loc(`event_chicken_eaten${Math.rand(0,10)}`),1,loc(`event_chicken_seasoning${Math.floor(seededRandom(0,10))}`)]);
+        }
+    },
+    fight:{ 
+        reqs: {
+            tech: 'primitive',
+            trait: 'aggressive'
+        },
+        condition(){
+            if (global.resource[global.race.species].amount > 0){
+                return true;
+            }
+            return false;
+        },
+        type: 'minor',
+        effect(){
+            let dead = Math.floor(seededRandom(1,jobScale(traits.aggressive.vars()[1] + 1)));
+            if (dead > global.resource[global.race.species].amount){ dead = global.resource[global.race.species].amount; }
+            global.resource[global.race.species].amount -= dead;
+            blubberFill(dead);
+            return loc('event_brawl_c',[loc(`event_brawl${Math.floor(seededRandom(0,10))}`),dead]);
         }
     },
     heatwave: {
@@ -682,10 +803,17 @@ export const events = {
         },
         type: 'minor',
         condition(){
-            if (!global.race['cataclysm'] && !global.race['orbit_decayed'] && global.city.calendar.temp !== 2){
-                return true;
+            // No planet or already hot
+            if (global.race['cataclysm'] || global.race['orbit_decayed'] || global.city.calendar.temp === 2){
+                return false;
             }
-            return false;
+            // Winter on tundra or taiga biome is always cold
+            // Eden is idyllic, so normally cannot be hot except in summer. For heat wave, allow in spring, summer, or autumn.
+            if (global.city.calendar.season === 3 && ['tundra','taiga','eden'].includes(global.city.biome)){
+                return false;
+            }
+            // Always allow heat wave on other biomes, even during winter
+            return true;
         },
         effect(){
             global.city.calendar.temp = 2;
@@ -699,10 +827,21 @@ export const events = {
         },
         type: 'minor',
         condition(){
-            if (!global.race['cataclysm'] && !global.race['orbit_decayed'] && global.city.calendar.temp !== 0){
-                return true;
+            // No planet or already cold
+            if (global.race['cataclysm'] || global.race['orbit_decayed'] || global.city.calendar.temp === 0){
+                return false;
             }
-            return false;
+            // Hellscape is never cold (except allow on custom planet hellscape with permafrost)
+            if (global.city.biome === 'hellscape' && !global.city.ptrait.includes('permafrost')){
+                return false;
+            }
+            // Summer on volcanic or ashland biome is always hot
+            // Eden is idyllic, so normally cannot be cold except in winter. For cold snap, allow in autumn, winter, or spring.
+            if (global.city.calendar.season === 1 && ['ashland','volcanic','eden'].includes(global.city.biome)){
+                return false;
+            }
+            // Always allow cold snap on other biomes, even during summer
+            return true;
         },
         effect(){
             global.city.calendar.temp = 0;
@@ -840,6 +979,30 @@ export const events = {
         let rumor = Math.rand(0,10);
         return loc(`event_rumor_type${rumor}`);
     }),
+    pet: {
+        reqs: {
+            tech: 'primitive',
+        },
+        type: 'minor',
+        effect(){
+            if (global.race['pet']){
+                global.race.pet.event += Math.rand(300,600);
+                let interaction = Math.rand(0,10);
+                return loc(`event_${global.race.pet.type}_interaction${interaction}`,[loc(`event_${global.race.pet.type}_name${global.race.pet.name}`)]);
+            }
+            else {
+                let pet = Math.rand(0,2) === 0 ? 'cat' : 'dog';
+                global.race['pet'] = {
+                    type: pet,
+                    name: pet === 'cat' ? Math.rand(0,12) : Math.rand(0,10),
+                    event: 0,
+                    pet: 0
+                };
+                drawPet();
+                return loc(`event_pet_${global.race.pet.type}`,[loc(`event_${global.race.pet.type}_name${global.race.pet.name}`)]);
+            }
+        }
+    },
 };
 
 function basicEvent(title,tech,func,cond){
@@ -876,9 +1039,8 @@ function slaveLoss(type,string){
         },
         type: type,
         effect(){
-            if (global.city['slave_pen'] && global.city.slave_pen.slaves > 0){
-                global.city.slave_pen.slaves--;
-                global.resource.Slave.amount = global.city.slave_pen.slaves;
+            if (global.city['slave_pen'] && global.resource.Slave.amount > 0){
+                global.resource.Slave.amount--;
                 return loc(`event_slave_${string}`);
             }
             else {
@@ -900,9 +1062,8 @@ function pillaged(gov,serious){
         killed = Math.round(killed / 2);
         wounded = Math.round(wounded / 2);
     }
-    global.civic.garrison.workers -= killed;
+    soldierDeath(killed);
     global.civic.garrison.wounded += wounded;
-    global.stats.died += killed;
     if (global.civic.garrison.wounded > global.civic.garrison.workers){
         global.civic.garrison.wounded = global.civic.garrison.workers;
     }

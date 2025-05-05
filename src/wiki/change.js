@@ -1,7 +1,275 @@
 import {} from './../vars.js';
 import { clearElement } from './../functions.js';
 
-const changeList = [
+export const changeList = [
+    {
+        version: `1.4.3`,
+        date: `5/4/2025`,
+        changes: [
+            `Evil Universe Scenario: Warlord.`,
+            `Added Planned Obsolescence Feat.`,
+            `You can now queue Spire Mechs.`,
+            `You can now pet your cat or dog once every 5 minutes.`,
+            `Symposium now gain Knowledge for all crew in Andromeda.`,
+            `Evil Authority adjustments for Cataclysm, Lone Survivor, and Orbit Decay.`,
+            `Soldiers assigned to Fortress guard duty now contribute Authority.`,
+            `Updated Empowered trait mechanics.`,
+            `Adjusted values for Master Artisan.`,
+            `Evil Wendigo can now use Shovels.`,
+            `Racconar can now recruit quarry workers.`,
+            `You can no longer get more then 100 servants from each TP T4 reset.`,
+            `You are now capped at 100 skilled servants from TP resets.`,
+            `Empowered Concealment Wards changed to Empowered Nexus in Witch Hunter.`,
+            `Breakdown improvements for some resources.`,
+            `Uranium geology bonus now applies to Uranium Ash.`,
+            `Spire boss resists now have a random element.`,
+            `Slitheryn once again have slow digestion.`,
+            `Fixed bug with Rogue trait that set crafted resources to 0.`,
+            `Fixed bug that caused Hybrid species to throw an error when triggering greatness resets.`,
+            `Fixed bug that caused Hybrid species to throw an error when triggering a Cataclysm reset.`,
+            `Fixed issue with Iridium Smelters miscalculating result.`,
+            `Fixed a variety of Joyless edge cases.`,
+            `Fixed Space Casino appearing improperly in power grid.`,
+            `Fixed Potato Battery in antimatter universe not benefiting from dark energy.`,
+            `Fixed issue with Resonance not unlocking if you pillared without unlocking the gate towers.`,
+            `Fixed divide by zero error with Soul Forge when you have 0 Authority.`,
+            `Deprecated trait Frail will no longer show up in the Custom Lab.`,
+            `Accessibility improvements.`,
+            `Minor misc bug fixes.`
+        ]
+    },
+    {
+        version: `1.4.2`,
+        date: `3/23/2025`,
+        changes: [
+            `New Evil Universe Mechanics.`,
+            `You now must maintain your Evil Authority.`,
+            `Evil Hell now spawns 10% more demons than other universes.`,
+            `Evil Dark Energy effects changed.`,
+            `Evil Biodome produces less food but boosts marine garrison.`,
+            `Various Evil flavor updates.`,
+            `Various bug fixes.`
+        ]
+    },
+    {
+        version: `1.4.1`,
+        revision: `a`,
+        date: `12/2/2024`,
+        changes: [
+            `Fixed Ore Processor.`,
+        ]
+    },
+    {
+        version: `1.4.1`,
+        date: `12/1/2024`,
+        changes: [
+            `Racconar now use the special Forager trait in place of Herbivore and Carnivore.`,
+            `Genetics Lab now shows rank adjustments with Empowered.`,
+            `Fixed wiki display of the Grand Death Tour progress.`,
+            `Normalized Mimic and Imitate ranks.`,
+            `Fliers will no longer be offered a new cement production method in Edenic realm.`,
+            `Fixed issues with powered down Stargate.`,
+            `Fixed various minor bugs.`
+        ]
+    },
+    {
+        version: `1.4.0`,
+        date: `11/28/2024`,
+        changes: [
+            `Push past the Spire and invade the Edenic Realms.`,
+            `Added new planet trait: Kamikaze.`,
+            `Added new CRISPR upgrade Bureaucratic Efficiency.`,
+            `The Grand Death Tour is available after completing Apotheosis.`,
+            `Custom Race lab now allows player to set a desired fanaticism trait.`,
+            `You can no longer have more than 10 negative traits on a custom.`,
+            `Invalid legacy customs will take a penalty called Overtapped in future game versions.`,
+            `Truepath Ships can now be queued for construction.`,
+            `Exotic Materials are now harder to replicate.`,
+            `Progenitor races are now shown on stats page.`,
+            `Symposium is now affected by piracy.`,
+            `Gate Turrets will now kill demons when the Soul Forge is turned off.`,
+            `Stellar Engine now has diminishing returns when pushed to extreme levels.`,
+            `The number of spies available when starting a spy op now affects mission time.`,
+            `Fluidized Bed Reactor no longer incorrectly applies to Nano Tubes.`,
+            `Shrines now cycle their effect with moon phase if purchased during a full, new, or quarter moon.`,
+            `Slitheryn Slow Digestion replaced with Astrologer.`,
+            `Slow trait value changed from -5 to -6.`
+        ]
+    },
+    {
+        version: `1.3.17`,
+        revision: `c`,
+        date: `11/1/2024`,
+        changes: [
+            `Non-Evil Wendigo can now Trick or Treat!`,
+        ]
+    },
+    {
+        version: `1.3.17`,
+        revision: `b`,
+        date: `10/29/2024`,
+        changes: [
+            `Fixed Ghost #3 with Forge Trait.`,
+            `Fixed Emocorn gloomy trait.`
+        ]
+    },
+    {
+        version: `1.3.17`,
+        revision: `a`,
+        date: `10/27/2024`,
+        changes: [
+            `Fixed Trick or Treat! Feat tracker.`
+        ]
+    },
+    {
+        version: `1.3.17`,
+        date: `10/13/2024`,
+        changes: [
+            `Cruisers now grant the correct number of soldiers in Fasting scenario.`,
+            `Mass Ejector will now show a timer until destabilization if T3 previously completed.`,
+            `Fixed Coal income in Cataclysm.`,
+            `Adjusted High Pop growth rates.`,
+            `Craftsmen have been renamed to Crafters.`,
+            `Fixed some issues with the Wiki.`,
+            `Fixed display error with Cultural Center.`
+        ]
+    },
+    {
+        version: `1.3.16`,
+        revision: `a`,
+        date: `9/30/2024`,
+        changes: [
+            `Fixed an issue with with Gravity Well challenge and having too many Railways.`
+        ]
+    },
+    {
+        version: `1.3.16`,
+        revision: `a`,
+        date: `9/30/2024`,
+        changes: [
+            `Fixed an issue with with Gravity Well challenge and having too many Railways.`
+        ]
+    },
+    {
+        version: `1.3.16`,
+        date: `9/29/2024`,
+        changes: [
+            `Pickaxes once again affect Coal Mines.`,
+            `Changed Scientific Notation to Engineering Notation.`,
+            `Added Scientific Notation option.`
+        ]
+    },
+    {
+        version: `1.3.15`,
+        revision: `a`,
+        date: `9/21/2024`,
+        changes: [
+            `Fixed Secret to Immortality feat not being awarded.`
+        ]
+    },
+    {
+        version: `1.3.15`,
+        date: `9/19/2024`,
+        changes: [
+            `Fasting scenario Demonic Infusion goal updated with new tastier experience.`,
+            `Starvation risk tooltips added for Fasting scenario.`,
+            `Mastery listed under stats tab now displays unmodified value.`,
+            `Dark Bomb will no longer appear as an option after the demon lord is defeated.`,
+        ]
+    },
+    {
+        version: `1.3.14`,
+        revision: `a`,
+        date: `9/2/2024`,
+        changes: [
+            `Fixed incorrect scientist label.`
+        ]
+    },
+    {
+        version: `1.3.14`,
+        date: `9/2/2024`,
+        changes: [
+            `Fixed various bugs with Fasting scenario.`,
+            `Difficulty tweaks to Fasting scenario.`,
+            `Added feat Icon for Fasting.`,
+            `Ships in route to the Dwarf planet now check their fuel consumption.`,
+            `Manual crafting is no longer affected by High Population trait.`,
+            `Misc bug fixes.`
+        ]
+    },
+    {
+        version: `1.3.13`,
+        revision: `b`,
+        date: `8/6/2024`,
+        changes: [
+            `Fixed issue with starting Cataclysm Scenerio.`,
+            `Fixed some issues with Fasting Scenario.`,
+            `Fixed an issue with Replicator scheduler and supplies.`
+        ]
+    },
+    {
+        version: `1.3.13`,
+        revision: `a`,
+        date: `8/6/2024`,
+        changes: [
+            `Fix a bug that prevented crafting in Cataclysm and Lone Survivor modes.`
+        ]
+    },
+    {
+        version: `1.3.13`,
+        date: `8/6/2024`,
+        changes: [
+            `New Scenario by CondoSlime: Fasting.`,
+            `More queue config options.`,
+            `Wiki Search feature by sm3232`,
+            `Language Updates.`,
+            `Random bug fixes.`
+        ]
+    },
+    {
+        version: `1.3.12`,
+        date: `3/30/2024`,
+        changes: [
+            `Fixed Easter Event.`
+        ]
+    },
+    {
+        version: `1.3.11`,
+        date: `2/19/2024`,
+        changes: [
+            `Community fixes:`,
+            `New Power settings.`,
+            `Fixed loot bug with Gravity Well and Dark Energy.`,
+            `Fixed pet names in pet events.`,
+            `Fixed issue with Aquarius sign and Tourist Centers.`,
+            `Fixed bugs with Arraak and Human thralls.`,
+            `Many bug fixes related to High Population trait.`,
+            `Many language updates.`
+        ]
+    },
+    {
+        version: `1.3.10`,
+        date: `1/23/2024`,
+        changes: [
+            `Added Gravity Well challenge mode.`,
+            `Prepping the Bioseed ship for launch now has a Helium-3 cost.`,
+            `Added new pet minor event`,
+            `Polish language translation by Wiedźmin.`,
+            `German language translation by FutterSillo.`,
+            `Various UI improvements and language updates.`
+        ]
+    },
+    {
+        version: `1.3.9`,
+        date: `8/20/2023`,
+        changes: [
+            `Pressing the same tab key multiple times will now cycle the subtabs.`,
+            `Reduced Mana costs of Improved Concealment, Study Corrupt Gem, & Outerplane Summon in Witch Hunter for non-gold star players.`,
+            `Fixed Bilateral Symmetry DNA bonus.`,
+            `Updated Korean and Chinese langs.`,
+            `Screen Reader improvement for achievements display.`
+        ]
+    },
     {
         version: `1.3.8`,
         revision: `a`,
@@ -480,7 +748,7 @@ const changeList = [
         date: `1/19/2022`,
         changes: [
             `Insectoid genus redesigned with High Population trait.`,
-            `Fixed bug that caused incorrect timer calculations when using Slow or Hyper trait at any rank other then 1.`
+            `Fixed bug that caused incorrect timer calculations when using Slow or Hyper trait at any rank other than 1.`
         ]
     },
     {
@@ -1505,7 +1773,7 @@ const changeList = [
             `Corpocracy factory bonus now applies to Cement, Graphene, and Vitreloy.`,
             `Republic now increases morale by 20%.`,
             `Oligarchy tax revenue penalty is now 5% (lowered from 10%).`,
-            `Oligarchy can now set taxes 20% higher then other governments (raised from 10%).`,
+            `Oligarchy can now set taxes 20% higher than other governments (raised from 10%).`,
             `Technocracy now adds a 10% Knowledge gain bonus.`,
             `Autocracy governments are now immune to the warmonger penalty.`,
             `Priests now apply a bonus to Ziggurats under Theocracy.`,
@@ -1545,7 +1813,7 @@ const changeList = [
             `Ascension reset no longer offers planet choices, instead your next race is created on the old planet with bonuses added to that planet.`,
             `Ascended planets now gain +2% to all geology deposits, +5% production, +10% storage, and +2 Sundial base Knowledge gain.`,
             `Unspent gene points in the Ascension Lab will be converted into Untapped Potential.`,
-            `Ascension lab now has a complexity gene tax for adding more then 4 traits.`,
+            `Ascension lab now has a complexity gene tax for adding more than 4 traits.`,
             `Technophobe perk now applies an additional bonus to custom race complexity.`,
             `Paranoid and Hoarder can now be combined.`,
             `Over capped slaves will now be released.`,
@@ -1844,7 +2112,7 @@ const changeList = [
         version: `0.7.11`,
         date: `12/15/2019`,
         changes: [
-            `Decaying resources will now use a warning color if you are losing that resource but at a slower rate then the decay rate.`,
+            `Decaying resources will now use a warning color if you are losing that resource but at a slower rate than the decay rate.`,
             `The most bottlenecked resource will now display in red while other trouble resources will be marked with an alert color.`,
             `CRISPR upgrades are now darkened when unaffordable.`,
             `Transfer Station now lists its uranium storage.`,
@@ -2302,7 +2570,7 @@ const changeList = [
         date: `8/28/2019`,
         changes: [
             `Fixed bug with some construction projects not refreshing the page after being built with the queue.`,
-            `Space exploration missions can no longer be queued more then once at a time.`,
+            `Space exploration missions can no longer be queued more than once at a time.`,
             `One off projects are now removed from the queue if completed manually.`,
             `Queue timers now track crafted resources.`,
             `Demonic attractor soul gem drop rate increase buffed from 5% to 8%.`,
@@ -2968,7 +3236,7 @@ const changeList = [
             `Sawmill powered on bonus reduced from 5% to 4%.`,
             `Rock Quarry powered on bonus reduced from 5% to 4%.`,
             `Stock Exchanges no longer cost Knowledge.`,
-            `Fixed a display bug that could cause farmers to falsely show they produced more food then they actual did.`,
+            `Fixed a display bug that could cause farmers to falsely show they produced more food than they actual did.`,
         ]
     },
     {
@@ -3133,8 +3401,8 @@ const changeList = [
         version: `0.2.48`,
         date: `5/8/2019`,
         changes: [
-            `Resources that are at greater then 99% capacity now change color to indicate they are at cap.`,
-            `Attacks from rival cities should no longer cause more wounded soldiers then you have.`,
+            `Resources that are at greater than 99% capacity now change color to indicate they are at cap.`,
+            `Attacks from rival cities should no longer cause more wounded soldiers than you have.`,
             `Assigning craftsman when no citizens are free will no longer take the labor from another job.`,
         ]
     },
@@ -3181,7 +3449,7 @@ const changeList = [
         date: `5/7/2019`,
         changes: [
             `Fixed a bug that was causing soldiers to become immortal.`,
-            `Fixed some bugs with morale that caused some weather patterns to apply a different value then was reported.`,
+            `Fixed some bugs with morale that caused some weather patterns to apply a different value than was reported.`,
             `Added weather to Food breakdown.`,
         ]
     },
@@ -3225,7 +3493,7 @@ export function changeLog(){
         content.append(change);
 
         let revision = changeList[i].hasOwnProperty('revision') ? changeList[i].revision : '';
-        change.append(`<div class="type"><h2 class="has-text-warning">v${changeList[i].version}${revision}</h2><span class="has-text-caution">${changeList[i].date}</span></div>`);
+        change.append(`<div class="type"><h2 class="has-text-warning" id="${changeList[i].version.replaceAll('.','_')}">v${changeList[i].version}${revision}</h2><span class="has-text-caution">${changeList[i].date}</span></div>`);
 
         for (let j=0; j<changeList[i].changes.length; j++){
             change.append(`<div class="desc">${changeList[i].changes[j]}</div>`);
@@ -3244,7 +3512,7 @@ export function getTopChange(elm){
     for (let idx=index; idx>=0; idx--){
         elm.append(`<div class="type"><h2 class="has-text-warning">v${changeList[idx].version}${changeList[idx].hasOwnProperty('revision') ? changeList[idx].revision : ''}</h2><span class="has-text-caution">${changeList[idx].date}</span></div>`);
         for (let i=0; i<changeList[idx].changes.length; i++){
-            elm.append(`<div class="desc">${changeList[idx].changes[i]}</div>`);
+            elm.append(`<div class="desc condense">${changeList[idx].changes[i]}</div>`);
         }
     }
     return elm;

@@ -1,9 +1,12 @@
 import { global } from './../vars.js';
 import { loc } from './../locale.js';
-import { clearElement, popover, getEaster, getTraitDesc } from './../functions.js';
+import { clearElement, popover, getEaster, getHalloween, getTraitDesc } from './../functions.js';
 import { races, traits, genus_traits, traitSkin } from './../races.js';
 import { ascendLab } from './../space.js';
+import { actions } from './../actions.js';
 import { sideMenu, infoBoxBuilder } from './functions.js';
+
+const hallowed = getHalloween();
 
 export function speciesPage(zone){
     let content = $(`#content`);
@@ -44,50 +47,104 @@ export function customPage(content) {
     });
     let lab = $(`<div class="infoBox wide"></div>`);
     content.append(lab);
-    ascendLab(lab);
+    ascendLab(false,lab);
 }
+
+const evolutionPath = {
+    angelic: ['phagocytosis', 'mammals', 'celestial'],
+    aquatic: ['phagocytosis', 'aquatic'],
+    avian: ['phagocytosis', 'eggshell', 'endothermic'],
+    carnivore: ['phagocytosis', 'mammals', 'animalism', 'carnivore'],
+    demonic: ['phagocytosis', 'mammals', 'demonic'],
+    eldritch: ['phagocytosis', 'eldritch'],
+    fey: ['phagocytosis', 'fey'],
+    fungi: ['chitin'],
+    giant: ['phagocytosis', 'mammals', 'gigantism'],
+    heat: ['phagocytosis', 'heat'],
+    herbivore: ['phagocytosis', 'mammals', 'animalism', 'herbivore'],
+    humanoid: ['phagocytosis', 'mammals', 'humanoid'],
+    insectoid: ['phagocytosis', 'athropods'],
+    plant: ['chloroplasts'],
+    polar: ['phagocytosis', 'polar'],
+    reptilian: ['phagocytosis', 'eggshell', 'ectothermic'],
+    sand: ['phagocytosis', 'sand'],
+    small: ['phagocytosis', 'mammals', 'dwarfism'],
+    synthetic: ['exterminate'],
+};
+
+Object.keys(evolutionPath).forEach(function (key) {
+    evolutionPath[key] = evolutionPath[key].map(function (s) { return typeof actions.evolution[s].title === 'function' ? actions.evolution[s].title() : actions.evolution[s].title; }).join(' -> ');
+});
 
 export function racesPage(content){
     content = sideMenu('create',content);
 
+    let genus_trank_pri = (global.stats.achieve['pathfinder'] && global.stats.achieve.pathfinder.l >= 4) ? 2 : 1;
+    let genus_trank_sec = (global.stats.achieve['pathfinder'] && global.stats.achieve.pathfinder.l >= 4) ? 1 : 0.5;
     let list = [];
     Object.keys(races).forEach(function (race){
-        if ((race === 'custom' && !global.custom.hasOwnProperty('race0')) || race === 'protoplasm'){
+        if ((race === 'custom' && !global.custom.hasOwnProperty('race0')) 
+            || (race === 'hybrid' && !global.custom.hasOwnProperty('race1'))
+            || race === 'protoplasm'){
             return;
         }
 
         let info = $(`<div id="${race}" class="infoBox"></div>`);
         content.append(info);
 
-        info.append(`<div class="type"><h2 class="has-text-warning">${races[race].name}</h2><span id="genus${race}" class="has-text-caution">${loc(`genelab_genus_${races[race].type}`)}</span></div>`);
+        let typeList = [];
+        let genusListing = ``;
+        if (races[race].type === 'hybrid'){
+            typeList = races[race].hybrid;
+        }
+        else {
+            typeList.push(races[race].type);
+        }
+
+        typeList.forEach(function (gType){
+            genusListing += `<span id="genus${race}${gType}" class="has-text-caution">${loc(`genelab_genus_${gType}`)}</span>`;
+        });
+
+        info.append(`<div class="type"><h2 class="has-text-warning">${races[race].name}</h2><span>${genusListing}</span></div>`);
         info.append(`<div class="desc">${typeof races[race].desc === 'string' ? races[race].desc : races[race].desc()}</div>`);
 
         let traitList = [];
         let extraTraits = extraTraitList(race);
 
         let genes = $(`<div class="itemlist"></div>`);
-        Object.keys(genus_traits[races[race].type]).sort().forEach(function (trait){
-            let id = `raceTrait${race}${trait}`;
-            let color = races[race].fanaticism === trait ? 'danger' : 'caution';
-            genes.append(`<span class="has-text-${color}" id="${id}">${traits[trait].name}<span>`);
-            traitList.push({ t: trait, r: 1});
+        let firstType = true; // For hybrids, arbitrarily display one type as primary and the other as secondary
+
+        (typeList.includes('carnivore') && typeList.includes('herbivore') ? ['omnivore'] : typeList).forEach(function (gType){
+            Object.keys(genus_traits[gType]).sort().forEach(function (trait){
+                let id = `raceTrait${race}${trait}`;
+                let color = races[race].fanaticism === trait ? 'danger' : 'caution';
+                genes.append(`<span class="has-text-${color}" id="${id}">${traitSkin('name', trait, race)}<span>`);
+                traitList.push({ t: trait, r: firstType ? genus_trank_pri : genus_trank_sec});
+            });
+            firstType = false;
         });
+
         Object.keys(races[race].traits).sort().forEach(function (trait){
+            if (hallowed.active && ((race === 'tortoisan' && trait === 'slow') || (race === 'unicorn' && trait === 'rainbow'))){
+                return;
+            }
             let id = `raceTrait${race}${trait}`;
             let color = races[race].fanaticism === trait ? 'danger' : 'info';
-            genes.append(`<span class="has-text-${color}" id="${id}">${traits[trait].name}<span>`);
+            genes.append(`<span class="has-text-${color}" id="${id}">${traitSkin('name', trait, race)}<span>`);
             traitList.push({ t: trait, r: races[race].traits[trait] });
         });
         for (let i=0; i<extraTraits.length; i++){
             let id = `raceTrait${race}${extraTraits[i].t}`;
             let color = races[race].fanaticism === extraTraits[i] ? 'danger' : 'info';
-            genes.append(`<span class="has-text-${color}" id="${id}">${traits[extraTraits[i].t].name}<span>`);
+            genes.append(`<span class="has-text-${color}" id="${id}">${traitSkin('name', extraTraits[i].t, race)}<span>`);
             traitList.push(extraTraits[i]);
         }
         info.append(genes);
         list.push(race);
 
-        popover(`genus${race}`,$(`<div>${loc(`genelab_genus_${races[race].type}_desc`)}</div>`),{ wide: true, classes: 'w25' });
+        typeList.forEach(function (gType){
+            popover(`genus${race}${gType}`,$(`<div>${loc(`genelab_genus_${gType}_desc`)}<br><br>${evolutionPath[gType]}</div>`),{ wide: true, classes: 'w25' });
+        });
 
         for (let i=0; i<traitList.length; i++){
             let id = `raceTrait${race}${traitList[i].t}`;
@@ -96,7 +153,9 @@ export function racesPage(content){
             getTraitDesc(desc, traitList[i].t, {
                 fanatic: traitList[i].t === races[race].fanaticism ? races[race].name : false, 
                 trank: traitList[i].r,
-                wiki: true
+                rpage: true,
+                wiki: true,
+                species: race
             });
 
             popover(id,desc,{ wide: true, classes: 'w25' });
@@ -110,7 +169,7 @@ export function racesPage(content){
 
 function extraTraitList(race){
     const date = new Date();
-    let easter = getEaster();
+    const easter = getEaster();
     switch (race){
         case 'wolven':
             return easter.active ? [{t: 'hyper', r: 1},{t: 'fast_growth', r: 1},{t: 'rainbow', r: 1},{t: 'optimistic', r: 1}] : [];
@@ -128,6 +187,12 @@ function extraTraitList(race){
             return date.getMonth() === 11 && date.getDate() >= 17 ? [{t: 'scavenger', r: 3},{t: 'regenerative', r: 0.5},{t: 'musical', r: 0.25}] : [];
         case 'entish':
             return date.getMonth() === 11 && date.getDate() >= 17 ? [{t: 'photosynth', r: 3},{t: 'optimistic', r: 0.5},{t: 'armored', r: 0.25}] : [];
+        case 'human':
+            return hallowed.active ? [{t: 'anthropophagite', r: 1}, {t: 'cannibalize', r: 2}, {t: 'infectious', r: 3}] : [];
+        case 'tortoisan':
+            return hallowed.active ? [{t: 'hyper', r: 0.25}, {t: 'swift', r: 0.5}, {t: 'infiltrator', r: 1}] : [];
+        case 'unicorn':
+            return hallowed.active ? [{t: 'gloomy', r: 1}, {t: 'darkness', r: 1}] : [];
         default:
             return [];
     }

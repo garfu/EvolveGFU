@@ -1,7 +1,7 @@
 import { global, p_on } from './vars.js';
 import { biomes, traits, fathomCheck } from './races.js';
-import { govRelationFactor } from './civics.js';
-import { jobScale } from './jobs.js';
+import { govRelationFactor, govEffect } from './civics.js';
+import { jobScale, teamsterCap } from './jobs.js';
 import { hellSupression } from './portal.js';
 import { flib } from './functions.js';
 import { govActive } from './governor.js';
@@ -13,7 +13,17 @@ export function highPopAdjust(v){
     return v;
 }
 
-export function production(id,val){
+export function teamster(v){
+    if (global.race['gravity_well'] && global.race['teamster'] && global.race.teamster > 0){
+        let cap = teamsterCap();
+        if (cap < 1){ cap = 1; }
+        let teamster = global.civic.teamster.workers > cap ? cap : global.civic.teamster.workers;
+        v *= teamster / cap;
+    }
+    return v;
+}
+
+export function production(id,val,wiki){
     switch (id){
         case 'transmitter':
         {
@@ -44,6 +54,9 @@ export function production(id,val){
             if (dirtVal){
                 oil *= 1 + (dirtVal / 100);
             }
+            if (global.race['warlord']){
+                oil *= 1 + (global.portal?.pumpjack?.rank || 1) * 0.24;
+            } 
             return oil;
         }
         case 'iridium_mine':
@@ -69,7 +82,7 @@ export function production(id,val){
         }
         case 'helium_mine':
         {
-            let base = 0.18;
+            let base = global.race['warlord'] ? 0.3 + (global.portal?.pumpjack?.rank || 1) * 0.08 : 0.18;
             let gov = govRelationFactor(3);
             return {
                 b: base,
@@ -112,7 +125,7 @@ export function production(id,val){
         {
             switch (val){
                 case 'food':
-                    return highPopAdjust(0.25);
+                    return highPopAdjust(global.race.universe === 'evil' ? 0.1 : 0.25);
                 case 'cat_food':
                     return 2;
                 case 'lumber':
@@ -139,7 +152,7 @@ export function production(id,val){
                 vals.n = vals.b;
             }
 
-            return val ? vals : vals.n;
+            return vals;
         }
         case 'oil_extractor':
         {
@@ -221,7 +234,7 @@ export function production(id,val){
         }
         case 'infernite_mine':
         {
-            let sup = hellSupression('gate');
+            let sup = hellSupression('gate', 0, wiki);
             return 0.5 * sup.supress;
         }
         case 'water_freighter':
@@ -508,5 +521,59 @@ export function production(id,val){
             }
             return 1;
         }
+        case 'asphodel_harvester':
+        {
+            let base = 0.075;
+            if (global.tech['hell_lake'] && global.tech.hell_lake >= 7 && global.tech['railway']){
+                base *= 1 + (global.tech.railway / 100);
+            }
+            if (global.race['warlord'] && global.eden['corruptor']){
+                base = 1 + (p_on['corruptor'] || 0) * 0.06;
+            }
+            return base;
+        }
+        case 'shadow_mine':
+        {
+            switch (val){
+                case 'elerium':
+                {
+                    return 0.02;
+                }
+                case 'infernite':
+                {
+                    return 0.015;
+                }
+                case 'vitreloy':
+                {
+                    return 0.22;
+                }
+            }
+        }
     }
+}
+
+export function factoryBonus(factory){
+    if (global.race['toxic']){
+        factory *= 1 + (traits.toxic.vars()[0] / 100);
+    }
+    if (global.race['artisan']){
+        factory *= 1 + (traits.artisan.vars()[1] / 100);
+    }
+    let fathom = fathomCheck('shroomi');
+    if (fathom > 0){
+        factory *= 1 + (traits.toxic.vars(1)[0] / 100 * fathom);
+    }
+    if (global.civic.govern.type === 'corpocracy'){
+        factory *= 1 + (govEffect.corpocracy()[4] / 100);
+    }
+    if (global.civic.govern.type === 'socialist'){
+        factory *= 1 + (govEffect.socialist()[1] / 100);
+    }
+    if (global.stats.achieve['iron_will'] && global.stats.achieve.iron_will.l >= 2){
+        factory *= 1.1;
+    }
+    if (global.race['elemental'] && traits.elemental.vars()[0] === 'acid'){
+        factory *= 1 + highPopAdjust(traits.elemental.vars()[2] * global.resource[global.race.species].amount / 100);
+    }
+    return factory;
 }

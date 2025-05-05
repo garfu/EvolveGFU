@@ -28,6 +28,9 @@ export function renderStructurePage(zone,path){
         case 'hell':
             hellPage(content);
             break;
+        case 'edenic':
+            edenPage(content);
+            break;
         case 'tauceti':
             taucetiPage(content);
             break;
@@ -51,6 +54,7 @@ const extraInformation = {
     interstellar: {},
     intergalactic: {},
     hell: {},
+    eden: {},
     tauceti: {},
 };
 
@@ -74,11 +78,12 @@ const calcInfo = {
         starDock: ['prep_ship','launch_ship'],
         interstellar: ['alpha_mission','proxima_mission','nebula_mission','neutron_mission','blackhole_mission','jump_ship','wormhole_mission','sirius_mission','sirius_b','ascend'],
         intergalactic: ['gateway_mission','gorddon_mission','alien2_mission','chthonian_mission'],
-        hell: ['pit_mission','assault_forge','ruins_mission','gate_mission','lake_mission','spire_mission','bribe_sphinx','spire_survey','spire'],
+        hell: ['pit_mission','assault_forge','ruins_mission','gate_mission','lake_mission','spire_mission','bribe_sphinx','spire_survey','spire','devilish_dish','oven_done'],
         tauceti: [
             'home_mission','dismantle','excavate','alien_outpost','red_mission','matrix','roid_mission','alien_station_survey',
             'contact','introduce','subjugate','gas_contest','gas_contest2','ignite_gas_giant','jeff','goe_facility'
         ],
+        eden: ['survery_meadows','rune_gate_open','survey_fields','fortress','siege_fortress','raid_supplies','ambush_patrol','ruined_fortress','scout_elysium','reincarnation','west_tower','isle_garrison','east_tower','soul_compactor','scout_palace','throne']
     },
     excludeCreep: { // Things that aren't one-offs, but also don't have conventional cost creep.
         planetary: ['horseshoe'],
@@ -89,7 +94,10 @@ const calcInfo = {
     max: { // Structures that can have a max to the number of them that you can get. Things with a max of 1 that are included here as opposed to in the exclude section are things that linger around after being purchased, usually having a changing text after being bought.
         prehistoric: {},
         planetary: {
-            s_alter: 1
+            s_alter: 1,
+            banquet: 5,
+            wonder_lighthouse: 1,
+            wonder_pyramid: 1
         },
         space: {
             star_dock: 1,
@@ -126,7 +134,8 @@ const calcInfo = {
             east_tower: towerSize(),
             bridge: 10,
             sphinx: 2,
-            waygate: 10
+            waygate: 10,
+            oven:100
         },
         tauceti: {
             alien_outpost: 1,
@@ -135,6 +144,19 @@ const calcInfo = {
             alien_station: 100,
             matrioshka_brain: 1000,
             ignition_device: 10
+        },
+        eden: {
+            throne: 1,
+            mech_station: 10,
+            rune_gate: 100,
+            fire_support_base: 100,
+            rushmore: 1,
+            reincarnation: 1,
+            north_pier: 10,
+            south_pier: 10,
+            infuser: 25,
+            conduit: 25,
+            tomb: 10
         }
     },
     count: { // Structures that have "count" values that aren't tracked in the building itself. Here you calculate the count that building would have from the save provided.
@@ -153,7 +175,10 @@ const calcInfo = {
             sphinx: !global.tech['hell_spire'] || global.tech.hell_spire < 7 ? 0 : global.tech.hell_spire === 7 ? 1 : 2,
             waygate: global.tech['waygate'] && global.tech.waygate >= 2 ? 10 : global.portal['waygate'] ? global.portal.waygate.count : 0
         },
-        tauceti: {}
+        tauceti: {}, 
+        eden: {
+            rune_gate: global.eden.hasOwnProperty('rune_gate') ? global.eden.rune_gate.count : 0
+        }
     },
     creepCalc: { // Because the cost creep is reverse engineered, buildings with very low cost creep can calculation discrepencies by using the base offset of 100. Here you set higher amounts for those specific buildings to use with the calculation to get a more accurate result.
         planetary: {
@@ -162,23 +187,12 @@ const calcInfo = {
         space: {
             assembly: 1000,
             swarm_satellite: 200
+        },
+        eden: {
+            spirit_vacuum: 2000,
+            research_station: 2000,
+            asphodel_harvester: 2000
         }
-    }
-};
-
-//Properties of inputs to use when adding.
-const inputTypes = {
-    mass_driver: {
-        type: "field",
-        min: 0,
-        import(){ return global.city['mass_driver'] ? global.city['mass_driver'].on : 0; }
-    }
-};
-
-//Additional inputs to pass for unique cases or things affected by other things.
-const calcInputs = {
-    fuelAdj: {
-        inputs: ['mass_driver']
     }
 };
 
@@ -194,6 +208,7 @@ function addCalcInputs(parent,key,section,region,path){
         costVis: false,
         creepVis: false,
         extra: {
+            isWiki: true,
             truepath: path === 'truepath'
         }
     };
@@ -229,6 +244,10 @@ function addCalcInputs(parent,key,section,region,path){
             action = actions.portal[region][key];
             inputs.real_owned = global.portal[key] ? global.portal[key].count : 0;
             break;
+        case 'eden':
+            action = actions.eden[region][key];
+            inputs.real_owned = global.eden[key] ? global.eden[key].count : 0;
+            break;
         case 'tauceti':
             action = actions.tauceti[region][key];
             inputs.real_owned = global.tauceti[key] ? global.tauceti[key].count : 0;
@@ -238,19 +257,13 @@ function addCalcInputs(parent,key,section,region,path){
         inputs.real_owned = calcInfo.count[section][key];
     }
     
-    //Add any additional inputs (Fully implement later)
-    let addInput = function(new_input){
-        inputs.extra[new_input] = inputTypes[new_input].import();
-    }
-    
     //Function to update function-based effects with # of building owned.
     let updateEffect = function(){
         if (action.hasOwnProperty('effect') && typeof action.effect !== 'string'){
             let effect = $(`.effect`, `#${key}`);
             clearElement(effect);
-            let insert = inputs.owned - inputs.real_owned;
+            let insert = { isWiki: true, count: inputs.owned - inputs.real_owned };
             if (effectInputs[key]){
-                insert = { count: insert };
                 effectInputs[key].forEach(function(inp){
                     switch (inp){
                         case 'truepath':
@@ -263,19 +276,15 @@ function addCalcInputs(parent,key,section,region,path){
         }
     };
     updateEffect();
-    
+
     let cost = action.cost;
+
     if (cost){
         Object.keys(adjustCosts(action)).forEach(function (res){
             resources[res] = {};
-            if (section === 'space' && (res === 'Oil' || res === 'Helium_3')){
-                calcInputs.fuelAdj.inputs.forEach(function (input){
-                    addInput(input);
-                });
-            }
         });
     }
-    
+
     //Functions to update costs and cost creeps
     let updateCosts = function(){
         let vis = false;
@@ -512,6 +521,26 @@ function hellPage(content){
                 addCalcInputs(info,struct,'hell',region);
                 sideMenu('add',`hell-structures`,id[1],typeof actions.portal[region][struct].title === 'function' ? actions.portal[region][struct].title() : actions.portal[region][struct].title);
                 popover(`pop${actions.portal[region][struct].id}`,$(`<div>${desc}</div>`));
+            }
+        });
+    });
+}
+
+function edenPage(content){
+    Object.keys(actions.eden).forEach(function (region){        
+        let name = typeof actions.eden[region].info.name === 'string' ? actions.eden[region].info.name : actions.eden[region].info.name();
+        let desc = typeof actions.eden[region].info.desc === 'string' ? actions.eden[region].info.desc : actions.eden[region].info.desc();
+
+        Object.keys(actions.eden[region]).forEach(function (struct){
+            if (struct !== 'info' && (!actions.eden[region][struct].hasOwnProperty('wiki') || actions.eden[region][struct].wiki)){
+                let id = actions.eden[region][struct].id.split('-');
+                let info = $(`<div id="${id[1]}" class="infoBox"></div>`);
+                content.append(info);
+                actionDesc(info, actions.eden[region][struct],`<span id="pop${actions.eden[region][struct].id}">${name}</span>`, true);
+                addInfomration(info,'eden',struct);
+                addCalcInputs(info,struct,'eden',region);
+                sideMenu('add',`eden-structures`,id[1],typeof actions.eden[region][struct].title === 'function' ? actions.eden[region][struct].title() : actions.eden[region][struct].title);
+                popover(`pop${actions.eden[region][struct].id}`,$(`<div>${desc}</div>`));
             }
         });
     });
