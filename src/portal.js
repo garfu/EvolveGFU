@@ -1530,23 +1530,13 @@ const fortressModules = {
                 let desc = `<div>${loc(global.race['warlord'] ? 'portal_soul_forge_warlord' : 'portal_soul_forge_effect',[global.resource.Soul_Gem.name])}</div>`;
                 let count = (wiki?.count ?? 0) + (global.portal.hasOwnProperty('soul_forge') ? global.portal.soul_forge.count : 0);
                 if (count >= 1){
-<<<<<<< HEAD
                     let cap = global.tech.hell_pit >= 6 ? 100000 : 200000;
-=======
-<<<<<<< HEAD
-                    let cap = global.tech.hell_pit >= 6 ? 100000 : 200000;
-                    if (global.tech.hell_pit >= 7 && p_on['soul_attractor'] > 0){
-                        cap *= 0.97 ** p_on['soul_attractor'];
-=======
-                    let cap = global.tech.hell_pit >= 6 ? 750000 : 1000000;
->>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
                     let num_s_attractor_on = (wiki ? global.portal.soul_attractor.on : p_on['soul_attractor']);
                     if (global.tech.hell_pit >= 7 && num_s_attractor_on > 0){
                         cap *= (global.stats.achieve['what_is_best'] && global.stats.achieve.what_is_best.e >= 3 ? 0.96 : 0.97) ** num_s_attractor_on;
                     }
                     if (global.race['ghostly'] && global.race['warlord']){
                         cap *= 2 - traits.ghostly.vars()[1];
->>>>>>> a9bd5b4851f4edd0d2f4e436fef0f2ff4133911d
                     }
                     desc = desc + `<div>${loc('portal_soul_forge_effect2',[global.portal['soul_forge'] ? global.portal.soul_forge.kills.toLocaleString() : 0,Math.round(cap).toLocaleString()])}</div>`;
                 }
@@ -7602,18 +7592,11 @@ export function mechCollect(mech){
         rating *= statusEffect(mech,effect);
     });
     rating *= terrainRating(mech,terrainFactor,effects);
-<<<<<<< HEAD
     //garfu higher collector rating
-    rating *= 2;
-=======
     if (global.race['warlord']){
         rating *= 0.1;
     }
-<<<<<<< HEAD
     rating *= 2;
-=======
->>>>>>> a9bd5b4851f4edd0d2f4e436fef0f2ff4133911d
->>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
     return rating;
 }
 

@@ -373,7 +373,6 @@ export const traits = {
                 case 0.25:
                     return [0.0050,0.0030];
                 case 0.5:
-<<<<<<< HEAD
                     return [0.01,0.005];
                 case 1:
                     return [0.02,0.01];
@@ -383,21 +382,6 @@ export const traits = {
                     return [0.03,0.015];
                 case 4:
                     return [0.04,0.030];
-=======
-                    return [0.01,0.0050];
-                case 1:
-                    return [0.015,0.010];
-                case 2:
-                    return [0.02,0.012];
-                case 3:
-<<<<<<< HEAD
-                    return [0.025,0.015];
-=======
-                    return [0.015,0.0075];
-                case 4:
-                    return [0.016,0.008];
->>>>>>> a9bd5b4851f4edd0d2f4e436fef0f2ff4133911d
->>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
             }
         },
     },
@@ -2337,11 +2321,7 @@ export const traits = {
         name: loc('trait_kindling_kindred_name'),
         desc: loc('trait_kindling_kindred'),
         type: 'major',
-<<<<<<< HEAD
         val: -120,
-=======
-        val: -100,
->>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
         vars(r){
             switch (r || traitRank('kindling_kindred') || 1){
                 case 0.1:
@@ -3341,33 +3321,17 @@ export const traits = {
                 case 0.1:
                     return [0.006,0.004];
                 case 0.25:
-<<<<<<< HEAD
                     return [0.01,0.006];
-=======
-                    return [0.010,0.006];
->>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
                 case 0.5:
                     return [0.02,0.01];
                 case 1:
                     return [0.03,0.015];
                 case 2:
-<<<<<<< HEAD
                     return [0.04,0.02];
                 case 3:
                     return [0.05,0.03];
                 case 4:
                     return [0.06,0.03];
-=======
-                    return [0.036,0.017];
-                case 3:
-<<<<<<< HEAD
-                    return [0.04,0.018];
-=======
-                    return [0.02,0.009];
-                case 4:
-                    return [0.021,0.0092];
->>>>>>> a9bd5b4851f4edd0d2f4e436fef0f2ff4133911d
->>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
             }
         }
     },
