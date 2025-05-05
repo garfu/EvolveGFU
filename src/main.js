@@ -3180,7 +3180,15 @@ function fastLoop(){
 
         if (global.tech['monuments']){
             let gasVal = govActive('gaslighter',2);
+<<<<<<< HEAD
             let mcap = gasVal ? (4 - gasVal) : 4;
+=======
+<<<<<<< HEAD
+            let mcap = gasVal ? (4 - gasVal) : 4;
+            moraleCap += global.tech['monuments'] * mcap;
+=======
+            let mcap = gasVal ? (2 - gasVal) : 2;
+>>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
             let monuments = global.tech.monuments;
             if (global.race['wish'] && global.race['wishStats']){
                 if (global.city['wonder_lighthouse']){ monuments += 5; }
@@ -3189,6 +3197,7 @@ function fastLoop(){
                 if (global.interstellar['wonder_gardens'] || global.space['wonder_gardens'] || global.portal['wonder_gardens']){ monuments += 5; }
             }
             moraleCap += monuments * mcap;
+>>>>>>> a9bd5b4851f4edd0d2f4e436fef0f2ff4133911d
         }
 
         if (global.civic.taxes.tax_rate < 20 && !global.race['banana']){
@@ -8710,8 +8719,14 @@ function midLoop(){
             }
         }
         if (global.race['slaver'] && global.tech['slaves'] && global.city['slave_pen']) {
+<<<<<<< HEAD
+            //garfu slave pens give 5?
+            caps['Slave'] = global.city.slave_pen.count * 5;
+            bd_Slave[loc('city_slave_pen')] = global.city.slave_pen.count * 5 + 'v';
+=======
             caps['Slave'] = global.city.slave_pen.count * 4;
             breakdown.c.Slave[loc('city_slave_housing',[global.resource.Slave.name])] = global.city.slave_pen.count * 4 + 'v';
+>>>>>>> a9bd5b4851f4edd0d2f4e436fef0f2ff4133911d
 
             if (caps['Slave'] < global.resource.Slave.amount){
                 global.resource.Slave.amount = caps['Slave'];
@@ -10702,10 +10717,17 @@ function midLoop(){
         if (global.arpa['sequence'] && global.arpa.sequence.on && gene_sequence){
             let labs = sequenceLabs();
             global.arpa.sequence.labs = labs;
+<<<<<<< HEAD
             global.arpa.sequence.time -= global.arpa.sequence.boost ? labs * 20 : labs;
             global.arpa.sequence.progress = global.arpa.sequence.max - global.arpa.sequence.time;
             if (global.arpa.sequence.time <= 0){
                 global.arpa.sequence.max = 500 * (1 + (global.race.mutation ** 2));
+=======
+            global.arpa.sequence.time -= global.arpa.sequence.boost ? labs * 10 : labs;
+            global.arpa.sequence.progress = global.arpa.sequence.max - global.arpa.sequence.time;
+            if (global.arpa.sequence.time <= 0){
+                global.arpa.sequence.max = 1000 * (1 + (global.race.mutation ** 2));
+>>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
                 if (global.race['adaptable']){
                     let adapt = 1 - (traits.adaptable.vars()[0] / 100);
                     global.arpa.sequence.max = Math.floor(global.arpa.sequence.max * adapt);

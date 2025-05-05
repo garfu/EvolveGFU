@@ -1302,6 +1302,10 @@ const spaceProjects = {
             },
             reqs: { theology: 4 },
             cost: {
+<<<<<<< HEAD
+=======
+                //garfu changed zigg cost and scaling
+>>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
                 Money(offset){ return spaceCostMultiplier('ziggurat', offset, 500000, 1.20); },
                 Stone(offset){ return spaceCostMultiplier('ziggurat', offset, 150000, 1.20); },
                 Aluminium(offset){ return spaceCostMultiplier('ziggurat', offset, 50000, 1.20); },
@@ -3946,10 +3950,21 @@ const interstellarProjects = {
                 }
                 return `${desc}<div class="has-text-caution">${loc('interstellar_citadel_power',[$(this)[0].powered(wiki),powerCostMod(2.5)])}</div>`;
             },
+<<<<<<< HEAD
+            powered(){
+                if (p_on['citadel'] && p_on['citadel'] > 1){
+                    //garfu citadel power cost halved
+                    return powerCostMod(15 + ((p_on['citadel'] - 1) * 2.5));
+=======
             powered(wiki){
                 let num_powered = wiki ? 0 : p_on['citadel'];
                 if (num_powered > 1){
+<<<<<<< HEAD
                     return powerCostMod(15 + ((num_powered - 1) * 2.5));
+=======
+                    return powerCostMod(30 + ((num_powered - 1) * 2.5));
+>>>>>>> a9bd5b4851f4edd0d2f4e436fef0f2ff4133911d
+>>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
                 }
                 return powerCostMod(15);
             },

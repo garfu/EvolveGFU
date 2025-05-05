@@ -132,6 +132,11 @@ export const gov_traits = {
     },
     racketeer: {
         name: loc(`gov_trait_racketeer`),
+<<<<<<< HEAD
+        effect(){ return loc(`gov_trait_racketeer_effect`,[$(this)[0].vars()[0],$(this)[0].vars()[1]]); },
+        //garfu reduced $ penalty
+        vars(){ return [5,35]; },
+=======
         effect(b){ return loc(`gov_trait_racketeer_effect`,[$(this)[0].vars(b)[0],$(this)[0].vars(b)[1]]); },
         vars(b){
             if (typeof(b) === 'undefined'){
@@ -139,6 +144,7 @@ export const gov_traits = {
             } 
             return b ? [5,45] : [5,35]; 
         },
+>>>>>>> a9bd5b4851f4edd0d2f4e436fef0f2ff4133911d
     },
     dealmaker: {
         name: loc(`gov_trait_dealmaker`),
@@ -1203,8 +1209,18 @@ export const gov_tasks = {
                 slaveCost *= 1 + (extraVal / 100);
             }
             if ( $(this)[0].req() && global.resource.Money.amount >= slaveCost && (global.resource.Money.diff >= slaveCost || global.resource.Money.amount + global.resource.Money.diff >= cashCap) ){
+<<<<<<< HEAD
                 let max = global.city.slave_pen.count * 5;
+=======
+<<<<<<< HEAD
+                //garfu raise slave replenishment from gov
+                let max = global.city.slave_pen.count * 5;
+                if (max > global.city.slave_pen.slaves){
+=======
+                let max = global.city.slave_pen.count * 4;
+>>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
                 if (max > global.resource.Slave.amount){
+>>>>>>> a9bd5b4851f4edd0d2f4e436fef0f2ff4133911d
                     actions.city.slave_market.action();
                 }
             }

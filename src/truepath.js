@@ -4502,7 +4502,7 @@ export function shipPower(ship, wiki){
             use_inflate = 2;
             break;
     }
-
+    //garfu more ship power
     switch (ship.power){
         case 'solar':
             watts = Math.round(100 * out_inflate);
@@ -4651,6 +4651,7 @@ export function shipSpeed(ship){
             break;
     }
 
+    //garfu faster ship travel
     let boost = ship.location === 'spc_dwarf' && p_on['m_relay'] && ship.transit === 0 && global.space['m_relay'] && global.space.m_relay.charged >= 10000 ? 3 : 1;
     switch (ship.engine){
         case 'ion':
@@ -4724,6 +4725,7 @@ export function shipCosts(bp){
     let h_inflate = 1;
     let p_inflate = 1;
     let creep_factor = 1;
+    //garfu adjusted creep factor of ships
     switch (bp.class){
         case 'corvette':
             costs['Money'] = 2500000;

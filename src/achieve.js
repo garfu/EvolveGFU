@@ -1290,6 +1290,10 @@ export const perkList = {
             },
             {
                 desc(wiki){
+<<<<<<< HEAD
+=======
+                    //garfu higher WH bonus to deposits
+>>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
                     let bonus = wiki ? "5/10/15/20/25" : global.stats.achieve['whitehole'] ? global.stats.achieve['whitehole'].l * 10 : 10;
                     return loc("achieve_perks_whitehole2",[bonus]);
                 },

@@ -1300,7 +1300,11 @@ export const bloodPool = {
         reqs: {},
         grant: ['greed','*'],
         cost: {
+<<<<<<< HEAD
             Blood_Stone(wiki){ return ((wiki || 0) + (global.blood['greed'] || 0)) * 5 + 5; },
+=======
+            Blood_Stone(wiki){ return ((wiki || 0) + (global.blood['greed'] || 0)) * 6 + 8; },
+>>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
             Artifact(wiki){ return ((wiki || 0) + (global.blood['greed'] || 0)) % 5 === 0 ? 1 : 0; }
         },
         effect(){ return `<span class="has-text-caution">${loc('arpa_blood_repeat')}</span>`; },
@@ -1321,7 +1325,11 @@ export const bloodPool = {
             return global.genes['blood'] && global.genes.blood >= 3 ? true : false;
         },
         cost: {
+<<<<<<< HEAD
             Blood_Stone(wiki){ return ((wiki || 0) + (global.blood['hoarder'] || 0)) * 5 + 5; },
+=======
+            Blood_Stone(wiki){ return ((wiki || 0) + (global.blood['hoarder'] || 0)) * 6 + 7; },
+>>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
             Artifact(wiki){ return ((wiki || 0) + (global.blood['hoarder'] || 0)) % 5 === 0 ? 1 : 0; }
         },
         effect(){ return `<span class="has-text-caution">${loc('arpa_blood_repeat')}</span>`; },
@@ -2118,8 +2126,13 @@ function genetics(){
 
         let mPhageCost = function(t){
             let cost = fibonacci(global.genes.minor[t] ? global.genes.minor[t] + 2 : 2);
+<<<<<<< HEAD
            // if (t === 'mastery'){ cost *= 2; }
            cost = cost/2;
+=======
+            //if (t === 'mastery'){ cost *= 2; }
+            cost = cost/2; 
+>>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
             return loc('arpa_phage_buy',[traitSkin('name',t),sizeApproximation(cost),loc(`resource_Phage_name`)]);
         };
 
@@ -2165,8 +2178,14 @@ function genetics(){
                     let can_purchase = true;
                     let redraw = false;
                     while (curr_iteration < iterations && can_purchase){
+<<<<<<< HEAD
                         let cost = fibonacci(global.genes.minor[t] ? global.genes.minor[t] + 2 : 2);
                         cost = cost/2
+=======
+                        //garfu lowered phage cost of minor trait upgrades
+                        let cost = fibonacci(global.genes.minor[t] ? global.genes.minor[t] + 2 : 2);
+                        cost = cost/2; 
+>>>>>>> 1c83b55dd6c7e558644cb0869f7c7923a37b50c9
                         //if (t === 'mastery'){ cost *= 2; }
                         if (global.prestige.Phage.count >= cost){
                             global.prestige.Phage.count -= cost;
