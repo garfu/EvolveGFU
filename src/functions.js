@@ -128,7 +128,7 @@ export function gameLoop(act){
             {
                 let main_timer = 20;
                 let mid_timer = 200;
-                let long_timer = 2500;
+                let long_timer = 1500;
                 if (global.race['slow']){
                     let slow = 1 + (traits.slow.vars()[0] / 100);
                     main_timer = Math.floor(main_timer * slow);
@@ -1562,7 +1562,8 @@ export function calcPrestige(type,inputs){
             else {
                 spire = global.portal.hasOwnProperty('spire') ? global.portal.spire.count : 0;
             }
-            [50,100].forEach(function(x){
+            //garfu more artifact milestones
+            [50,100,150,200,250,300,350,400,500,600,700].forEach(function(x){
                 if (spire > x){
                     artifact++;
                 }
@@ -1574,6 +1575,7 @@ export function calcPrestige(type,inputs){
 
     if (type === 'ai'){
         gains.cores = universe === 'micro' ? 2 : 5;
+        gains.cores*=2;
     }
 
     return gains;

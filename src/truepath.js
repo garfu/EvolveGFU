@@ -4176,47 +4176,48 @@ export function shipCosts(bp){
     let h_inflate = 1;
     let p_inflate = 1;
     let creep_factor = 1;
+    //garfu adjusted creep factor of ships
     switch (bp.class){
         case 'corvette':
             costs['Money'] = 2500000;
             costs['Aluminium'] = 500000;
             h_inflate = 1;
             p_inflate = 1;
-            creep_factor = 2;
+            creep_factor = 1.1;
             break;
         case 'frigate':
             costs['Money'] = 5000000;
             costs['Aluminium'] = 1250000;
             h_inflate = 1.1;
             p_inflate = 1.09;
-            creep_factor = 1.5;
+            creep_factor = 1.1;
             break;
         case 'destroyer':
             costs['Money'] = 15000000;
             costs['Aluminium'] = 3500000;
             h_inflate = 1.2;
             p_inflate = 1.18;
-            creep_factor = 1.2;
+            creep_factor = 1.05;
             break;
         case 'cruiser':
             costs['Money'] = 50000000;
             costs['Adamantite'] = 1000000;
             h_inflate = 1.3;
-            p_inflate = 1.25;
+            p_inflate = 1.05;
             break;
         case 'battlecruiser':
             costs['Money'] = 125000000;
             costs['Adamantite'] = 2600000;
             h_inflate = 1.35;
             p_inflate = 1.3;
-            creep_factor = 0.8;
+            creep_factor = 0.4;
             break;
         case 'dreadnought':
             costs['Money'] = 500000000;
             costs['Adamantite'] = 8000000;
             h_inflate = 1.4;
             p_inflate = 1.35;
-            creep_factor = 0.5;
+            creep_factor = 0.25;
             break;
         case 'explorer':
             costs['Money'] = 800000000;

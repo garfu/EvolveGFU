@@ -4420,7 +4420,7 @@ export function mechWeaponPower(size){
         case 'large':
             return 0.01;
         case 'titan':
-            return 0.012;
+            return 0.015;
         default:
             return 0;
     }
