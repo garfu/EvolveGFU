@@ -3180,7 +3180,7 @@ function fastLoop(){
 
         if (global.tech['monuments']){
             let gasVal = govActive('gaslighter',2);
-            let mcap = gasVal ? (2 - gasVal) : 2;
+            let mcap = gasVal ? (4 - gasVal) : 4;
             let monuments = global.tech.monuments;
             if (global.race['wish'] && global.race['wishStats']){
                 if (global.city['wonder_lighthouse']){ monuments += 5; }
@@ -4186,7 +4186,7 @@ function fastLoop(){
             if (global.arpa['sequence'] && global.arpa.sequence.on && global.arpa.sequence.time > 0 && sequenceLabs() > 0){
                 let gene_cost = 50 + (global.race.mutation * 10);
                 if (global.arpa.sequence.boost){
-                    gene_cost *= 4;
+                    gene_cost *= 1;
                 }
                 if (gene_cost * time_multiplier <= global.resource.Knowledge.amount){
                     gene_consume = gene_cost;
@@ -10702,10 +10702,10 @@ function midLoop(){
         if (global.arpa['sequence'] && global.arpa.sequence.on && gene_sequence){
             let labs = sequenceLabs();
             global.arpa.sequence.labs = labs;
-            global.arpa.sequence.time -= global.arpa.sequence.boost ? labs * 2 : labs;
+            global.arpa.sequence.time -= global.arpa.sequence.boost ? labs * 20 : labs;
             global.arpa.sequence.progress = global.arpa.sequence.max - global.arpa.sequence.time;
             if (global.arpa.sequence.time <= 0){
-                global.arpa.sequence.max = 50000 * (1 + (global.race.mutation ** 2));
+                global.arpa.sequence.max = 500 * (1 + (global.race.mutation ** 2));
                 if (global.race['adaptable']){
                     let adapt = 1 - (traits.adaptable.vars()[0] / 100);
                     global.arpa.sequence.max = Math.floor(global.arpa.sequence.max * adapt);
@@ -11729,7 +11729,7 @@ function longLoop(){
                 global.city.calendar.temp = 1;
                 global.city.calendar.weather = -1;
             }
-            else if (Math.rand(0,5) === 0){
+            else if (Math.rand(0,5) === 6){
                 let temp = Math.rand(0,3);
                 let sky = Math.rand(0,5);
                 let wind = Math.rand(0,3);
@@ -12134,9 +12134,9 @@ function longLoop(){
         }
 
         if (!global.race['warlord'] && (global.stats.matrix > 0 || global.stats.retire > 0) && !global.race['servants'] && Math.rand(0,25) === 0){
-            let womlings = Math.min(global.stats.matrix,100) + Math.min(global.stats.retire,100) + Math.min(global.stats.eden,100);
-            let skilled = Math.min(Math.min(global.stats.matrix, global.stats.retire),100);
-            skilled += global.stats.achieve['pathfinder'] && global.stats.achieve.pathfinder.l >= 5 ? 2 : 0;
+            let womlings = global.stats.matrix + global.stats.retire + global.stats.eden;
+            let skilled = global.stats.achieve['pathfinder'] && global.stats.achieve.pathfinder.l >= 5 ? 2 : 0;
+            skilled += Math.min(global.stats.matrix, global.stats.retire);
             if (global.stats.achieve['overlord'] && global.stats.achieve.overlord.l >= 5){
                 universe_affixes.forEach(function(uni){
                     if (global.stats.achieve.overlord[uni] >= 5){

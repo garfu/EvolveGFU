@@ -1530,7 +1530,7 @@ const fortressModules = {
                 let desc = `<div>${loc(global.race['warlord'] ? 'portal_soul_forge_warlord' : 'portal_soul_forge_effect',[global.resource.Soul_Gem.name])}</div>`;
                 let count = (wiki?.count ?? 0) + (global.portal.hasOwnProperty('soul_forge') ? global.portal.soul_forge.count : 0);
                 if (count >= 1){
-                    let cap = global.tech.hell_pit >= 6 ? 750000 : 1000000;
+                    let cap = global.tech.hell_pit >= 6 ? 100000 : 200000;
                     let num_s_attractor_on = (wiki ? global.portal.soul_attractor.on : p_on['soul_attractor']);
                     if (global.tech.hell_pit >= 7 && num_s_attractor_on > 0){
                         cap *= (global.stats.achieve['what_is_best'] && global.stats.achieve.what_is_best.e >= 3 ? 0.96 : 0.97) ** num_s_attractor_on;
@@ -4339,7 +4339,7 @@ export function bloodwar(){
     let gem_chance = game_base - global.portal.fortress.pity;
     
     if (global.tech['portal'] >= 4 && p_on['attractor']){
-        gem_chance = Math.round(gem_chance * (0.948 ** p_on['attractor']));
+        gem_chance = Math.round(gem_chance * (0.1 ** p_on['attractor']));
     }
 
     if (global.race['ghostly']){
@@ -4444,6 +4444,7 @@ export function bloodwar(){
                         if (Math.rand(0,gem_chance) === 0){
                             patrol_report.gem++;
                             day_report.stats.gems.patrols++;
+                            global.resource.Soul_Gem.amount++;
                             global.resource.Soul_Gem.amount++;
                             global.portal.fortress.pity = 0;
                             if (!global.resource.Soul_Gem.display){
@@ -4674,7 +4675,7 @@ export function bloodwar(){
         global.portal.fortress.pity++;
     }
 
-    if (global.stats.dkills >= 1000000 && global.tech['gateway'] && !global.tech['hell_pit']){
+    if (global.stats.dkills >= 1000 && global.tech['gateway'] && !global.tech['hell_pit']){
         global.tech['hell_pit'] = 1;
         global.settings.portal.pit = true;
         messageQueue(loc('portal_hell_pit_found'),'info',false,['progress','hell']);
@@ -6279,20 +6280,20 @@ export function mechCost(size,infernal,standardize){
             break;
         case 'medium':
             {
-                cost = infernal ? 450000 : 180000;
-                soul = infernal ? 100 : 4;
+                cost = infernal ? 225000 : 90000;
+                soul = infernal ? 50 : 2;
             }
             break;
         case 'large':
             {
-                cost = infernal ? 925000 : 375000;
-                soul = infernal ? 500 : 20;
+                cost = infernal ? 500000 : 175000;
+                soul = infernal ? 75 : 10;
             }
             break;
         case 'titan':
             {
-                cost = infernal ? 1500000 : 750000;
-                soul = infernal ? 1500 : 75;
+                cost = infernal ? 750000 : 325000;
+                soul = infernal ? 150 : 75;
             }
             break;
         case 'collector':
@@ -7594,6 +7595,7 @@ export function mechCollect(mech){
     if (global.race['warlord']){
         rating *= 0.1;
     }
+    rating *= 2;
     return rating;
 }
 
@@ -7614,7 +7616,7 @@ export function mechWeaponPower(size){
         case 'archfiend':
             return 0.011;
         case 'titan':
-            return 0.012;
+            return 0.015;
         default:
             return 0;
     }
@@ -7627,7 +7629,7 @@ export function mechRating(mech,boss){
     }
 
     if (mech.hasOwnProperty('infernal') && mech.infernal && global.blood['prepared'] && global.blood.prepared >= 3){
-        rating *= 1.25;
+        rating *= 2.00;
     }
     if (global.blood['wrath']){
         rating *= 1 + (global.blood.wrath / 20);

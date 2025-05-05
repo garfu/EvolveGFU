@@ -4505,19 +4505,19 @@ export function shipPower(ship, wiki){
 
     switch (ship.power){
         case 'solar':
-            watts = Math.round(50 * out_inflate);
-            break;
-        case 'diesel':
             watts = Math.round(100 * out_inflate);
             break;
+        case 'diesel':
+            watts = Math.round(200 * out_inflate);
+            break;
         case 'fission':
-            watts = Math.round(150 * out_inflate);
+            watts = Math.round(300 * out_inflate);
             break;
         case 'fusion':
-            watts = Math.round((ship.class === 'explorer' || wiki ? 174 : 175) * out_inflate);
+            watts = Math.round((ship.class === 'explorer' || wiki ? 350 : 350) * out_inflate);
             break;
         case 'elerium':
-            watts = Math.round(200 * out_inflate);
+            watts = Math.round(400 * out_inflate);
             break;
     }
 
@@ -4654,15 +4654,15 @@ export function shipSpeed(ship){
     let boost = ship.location === 'spc_dwarf' && p_on['m_relay'] && ship.transit === 0 && global.space['m_relay'] && global.space.m_relay.charged >= 10000 ? 3 : 1;
     switch (ship.engine){
         case 'ion':
-            return 12 / mass * boost;
+            return 36 / mass * boost;
         case 'tie':
-            return 22 / mass * boost;
+            return 66 / mass * boost;
         case 'pulse':
-            return 18 / mass * boost;
+            return 66 / mass * boost;
         case 'photon':
-            return 30 / mass * boost;
+            return 90 / mass * boost;
         case 'vacuum':
-            return 42 / mass * boost;
+            return 126 / mass * boost;
         case 'emdrive':
             return 37500 / mass * boost;
     }
@@ -4730,41 +4730,41 @@ export function shipCosts(bp){
             costs['Aluminium'] = 500000;
             h_inflate = 1;
             p_inflate = 1;
-            creep_factor = 2;
+            creep_factor = 1.1;
             break;
         case 'frigate':
             costs['Money'] = 5000000;
             costs['Aluminium'] = 1250000;
             h_inflate = 1.1;
             p_inflate = 1.09;
-            creep_factor = 1.5;
+            creep_factor = 1.1;
             break;
         case 'destroyer':
             costs['Money'] = 15000000;
             costs['Aluminium'] = 3500000;
             h_inflate = 1.2;
             p_inflate = 1.18;
-            creep_factor = 1.2;
+            creep_factor = 1.05;
             break;
         case 'cruiser':
             costs['Money'] = 50000000;
             costs['Adamantite'] = 1000000;
             h_inflate = 1.3;
-            p_inflate = 1.25;
+            p_inflate = 1.05;
             break;
         case 'battlecruiser':
             costs['Money'] = 125000000;
             costs['Adamantite'] = 2600000;
             h_inflate = 1.35;
             p_inflate = 1.3;
-            creep_factor = 0.8;
+            creep_factor = 0.4;
             break;
         case 'dreadnought':
             costs['Money'] = 500000000;
             costs['Adamantite'] = 8000000;
             h_inflate = 1.4;
             p_inflate = 1.35;
-            creep_factor = 0.5;
+            creep_factor = 0.25;
             break;
         case 'explorer':
             costs['Money'] = 800000000;

@@ -371,17 +371,17 @@ export const traits = {
                 case 0.1:
                     return [0.0015,0.001];
                 case 0.25:
-                    return [0.0025,0.0015];
+                    return [0.0050,0.0030];
                 case 0.5:
-                    return [0.005,0.0025];
-                case 1:
                     return [0.01,0.005];
+                case 1:
+                    return [0.02,0.01];
                 case 2:
-                    return [0.0125,0.006];
+                    return [0.02,0.012];
                 case 3:
-                    return [0.015,0.0075];
+                    return [0.03,0.015];
                 case 4:
-                    return [0.016,0.008];
+                    return [0.04,0.030];
             }
         },
     },
@@ -2321,7 +2321,7 @@ export const traits = {
         name: loc('trait_kindling_kindred_name'),
         desc: loc('trait_kindling_kindred'),
         type: 'major',
-        val: 8,
+        val: -120,
         vars(r){
             switch (r || traitRank('kindling_kindred') || 1){
                 case 0.1:
@@ -3319,19 +3319,19 @@ export const traits = {
             // [Planet Creep, Space Creep]
             switch (r || traitRank('compact') || 1){
                 case 0.1:
-                    return [0.003,0.002];
+                    return [0.006,0.004];
                 case 0.25:
-                    return [0.005,0.003];
+                    return [0.01,0.006];
                 case 0.5:
-                    return [0.01,0.005];
+                    return [0.02,0.01];
                 case 1:
-                    return [0.015,0.0075];
+                    return [0.03,0.015];
                 case 2:
-                    return [0.018,0.0085];
+                    return [0.04,0.02];
                 case 3:
-                    return [0.02,0.009];
+                    return [0.05,0.03];
                 case 4:
-                    return [0.021,0.0092];
+                    return [0.06,0.03];
             }
         }
     },

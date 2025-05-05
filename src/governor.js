@@ -27,7 +27,8 @@ export const gmen = {
         title: [loc('governor_criminal_t1'),loc('governor_criminal_t2'),{ m: loc('governor_criminal_t3m'), f: loc('governor_criminal_t3f') }],
         traits: {
             noquestions: 1,
-            racketeer: 1
+            racketeer: 1,
+            athleticism: 1
         }
     },
     entrepreneur: {
@@ -136,7 +137,7 @@ export const gov_traits = {
             if (typeof(b) === 'undefined'){
                 b = global.genes.hasOwnProperty('governor') && global.genes.governor >= 3 ? true : false;
             } 
-            return b ? [18,45] : [20,35]; 
+            return b ? [5,45] : [5,35]; 
         },
     },
     dealmaker: {
@@ -1202,7 +1203,7 @@ export const gov_tasks = {
                 slaveCost *= 1 + (extraVal / 100);
             }
             if ( $(this)[0].req() && global.resource.Money.amount >= slaveCost && (global.resource.Money.diff >= slaveCost || global.resource.Money.amount + global.resource.Money.diff >= cashCap) ){
-                let max = global.city.slave_pen.count * 4;
+                let max = global.city.slave_pen.count * 5;
                 if (max > global.resource.Slave.amount){
                     actions.city.slave_market.action();
                 }

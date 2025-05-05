@@ -1302,10 +1302,10 @@ const spaceProjects = {
             },
             reqs: { theology: 4 },
             cost: {
-                Money(offset){ return spaceCostMultiplier('ziggurat', offset, 600000, 1.28); },
-                Stone(offset){ return spaceCostMultiplier('ziggurat', offset, 250000, 1.28); },
-                Aluminium(offset){ return spaceCostMultiplier('ziggurat', offset, 70000, 1.28); },
-                Mythril(offset){ return spaceCostMultiplier('ziggurat', offset, 250, 1.28); }
+                Money(offset){ return spaceCostMultiplier('ziggurat', offset, 500000, 1.20); },
+                Stone(offset){ return spaceCostMultiplier('ziggurat', offset, 150000, 1.20); },
+                Aluminium(offset){ return spaceCostMultiplier('ziggurat', offset, 50000, 1.20); },
+                Mythril(offset){ return spaceCostMultiplier('ziggurat', offset, 150, 1.20); }
             },
             effect(wiki){
                 let bonus = global.tech['ancient_study'] ? 0.6 : 0.4;
@@ -3949,9 +3949,9 @@ const interstellarProjects = {
             powered(wiki){
                 let num_powered = wiki ? 0 : p_on['citadel'];
                 if (num_powered > 1){
-                    return powerCostMod(30 + ((num_powered - 1) * 2.5));
+                    return powerCostMod(15 + ((num_powered - 1) * 2.5));
                 }
-                return powerCostMod(30);
+                return powerCostMod(15);
             },
             action(){
                 if (payCosts($(this)[0])){
@@ -8390,6 +8390,7 @@ function terraformScore(planet,wiki){
     if (ts > 3){
         pts -= (ts - 3) ** 2;
     }
+    pts *= 4;
     return pts;
 }
 

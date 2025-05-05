@@ -1290,7 +1290,7 @@ export const perkList = {
             },
             {
                 desc(wiki){
-                    let bonus = wiki ? "5/10/15/20/25" : global.stats.achieve['whitehole'] ? global.stats.achieve['whitehole'].l * 5 : 5;
+                    let bonus = wiki ? "5/10/15/20/25" : global.stats.achieve['whitehole'] ? global.stats.achieve['whitehole'].l * 10 : 10;
                     return loc("achieve_perks_whitehole2",[bonus]);
                 },
                 active(){
