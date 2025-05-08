@@ -271,7 +271,7 @@ export const gov_traits = {
             if (typeof(b) === 'undefined'){
                 b = global.genes.hasOwnProperty('governor') && global.genes.governor >= 3 ? true : false;
             }
-            return b ? [1.5,2,3] : [1.5,2,4]; 
+            return b ? [1.5,2,0] : [1.5,2,0]; 
         },
     },
     nopain: {

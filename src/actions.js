@@ -1470,7 +1470,7 @@ export const actions = {
                 };
             },
             citizens(){
-                let pop = 2;
+                let pop = 3;
                 if (global.race['high_pop']){
                     pop *= traits.high_pop.vars()[0];
                 }
@@ -1776,7 +1776,7 @@ export const actions = {
                 };
             },
             citizens(){
-                let pop = 1;
+                let pop = 2;
                 if (global.race['high_pop']){
                     pop *= traits.high_pop.vars()[0];
                 }
@@ -3039,8 +3039,10 @@ export const actions = {
                     global.civic.coal_miner.display = true;
                     global.civic.coal_miner.max = jobScale(global.city.coal_mine.count);
                     powerOnNewStruct($(this)[0]);
+                    global.resource.Steel.display = true;
                     return true;
                 }
+                global.resource.Steel.display = true;
                 return false;
             },
             struct(){
