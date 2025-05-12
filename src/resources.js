@@ -3199,7 +3199,7 @@ export const plasmidBonus = (function (){
             let anti = 0; 
             if (global.race.universe !== 'antimatter' || global.genes['bleed']){
                 let active = global.race.p_mutation + (global.race['wish'] && global.race['wishStats'] ? global.race.wishStats.plas : 0);
-                let plasmids = global.race['no_plasmid'] ? Math.min(active, global.prestige.Plasmid.count) : global.prestige.Plasmid.count;
+                let plasmids = global.race['no_plasmid'] ? global.prestige.Plasmid.count : global.prestige.Plasmid.count;
                 if (global.race.universe === 'antimatter' && global.genes['bleed']){
                     plasmids *= 0.025
                 }

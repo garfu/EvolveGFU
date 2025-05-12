@@ -456,8 +456,8 @@ export function drawnGovernOffice(){
     { // Crate/Container Construction
         if (!global.race.governor.config.hasOwnProperty('storage')){
             global.race.governor.config['storage'] = {
-                crt: 1000,
-                cnt: 1000
+                crt: 100,
+                cnt: 100
             };
         }
 
@@ -529,7 +529,7 @@ export function drawnGovernOffice(){
     { // Spy Recruitment
         if (!global.race.governor.config.hasOwnProperty('spy')){
             global.race.governor.config['spy'] = {
-                reserve: 100
+                reserve: 80
             };
         }
 

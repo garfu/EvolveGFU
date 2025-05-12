@@ -3887,13 +3887,13 @@ function fastLoop(){
             global.resource[global.race.species].amount += missing;
         }
         else if (((fed && global['resource']['Food'].amount > 0) || global.race['fasting']) && global['resource'][global.race.species].max > global['resource'][global.race.species].amount){
-            if (global.race['artifical'] || (global.race['spongy'] && global.city.calendar.weather === 0)){
+           // if (global.race['artifical'] || (global.race['spongy'] && global.city.calendar.weather === 0)){
                 // Do Nothing
-            }
-            else if (global.race['parasite'] && global.city.calendar.wind === 0 && !global.race['cataclysm'] && !global.race['orbit_decayed']){
+           // }
+           // else if (global.race['parasite'] && global.city.calendar.wind === 0 && !global.race['cataclysm'] && !global.race['orbit_decayed']){
                 // Do Nothing
-            }
-            else if (global.race['vax'] && global.race.vax >= 100){
+           // }
+            if (global.race['vax'] && global.race.vax >= 100){
                 // Do Nothing
             }
             else {
@@ -3907,15 +3907,15 @@ function fastLoop(){
                     lowerBound *= traits.fast_growth.vars()[0];
                     lowerBound += traits.fast_growth.vars()[1];
                 }
-                if (global.race['spores'] && global.city.calendar.wind === 1){
-                    if (global.race['parasite']){
-                        lowerBound += traits.spores.vars()[2];
-                    }
-                    else {
-                        lowerBound += traits.spores.vars()[0];
-                        lowerBound *= traits.spores.vars()[1];
-                    }
-                }
+               // if (global.race['spores'] && global.city.calendar.wind === 1){
+               //     if (global.race['parasite']){
+               //         lowerBound += traits.spores.vars()[2];
+               //     }
+               //     else {
+               //         lowerBound += traits.spores.vars()[0];
+               //         lowerBound *= traits.spores.vars()[1];
+               //     }
+               // }
                 if (global.tech['reproduction'] && global.tech.reproduction >= 2 && global.city['hospital']){
                     lowerBound += global.city.hospital.count;
                 }
