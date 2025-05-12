@@ -3175,7 +3175,7 @@ function fastLoop(){
 
         if (global.tech['monuments']){
             let gasVal = govActive('gaslighter',2);
-            let mcap = gasVal ? (2 - gasVal) : 2;
+            let mcap = gasVal ? (4 - gasVal) : 4;
             let monuments = global.tech.monuments;
             if (global.race['wish'] && global.race['wishStats']){
                 if (global.city['wonder_lighthouse']){ monuments += 5; }
@@ -3882,13 +3882,13 @@ function fastLoop(){
             global.civic[global.civic.d_job].workers++;
         }
         else if (((fed && global['resource']['Food'].amount > 0) || global.race['fasting']) && global['resource'][global.race.species].max > global['resource'][global.race.species].amount){
-            if (global.race['artifical'] || (global.race['spongy'] && global.city.calendar.weather === 0)){
+           // if (global.race['artifical'] || (global.race['spongy'] && global.city.calendar.weather === 0)){
                 // Do Nothing
-            }
-            else if (global.race['parasite'] && global.city.calendar.wind === 0 && !global.race['cataclysm'] && !global.race['orbit_decayed']){
+           // }
+           // else if (global.race['parasite'] && global.city.calendar.wind === 0 && !global.race['cataclysm'] && !global.race['orbit_decayed']){
                 // Do Nothing
-            }
-            else if (global.race['vax'] && global.race.vax >= 100){
+           // }
+            if (global.race['vax'] && global.race.vax >= 100){
                 // Do Nothing
             }
             else {
@@ -3902,15 +3902,15 @@ function fastLoop(){
                     lowerBound *= traits.fast_growth.vars()[0];
                     lowerBound += traits.fast_growth.vars()[1];
                 }
-                if (global.race['spores'] && global.city.calendar.wind === 1){
-                    if (global.race['parasite']){
-                        lowerBound += traits.spores.vars()[2];
-                    }
-                    else {
-                        lowerBound += traits.spores.vars()[0];
-                        lowerBound *= traits.spores.vars()[1];
-                    }
-                }
+                //if (global.race['spores'] && global.city.calendar.wind === 1){
+                //    if (global.race['parasite']){
+                //        lowerBound += traits.spores.vars()[2];
+                //    }
+                //    else {
+                //        lowerBound += traits.spores.vars()[0];
+                //        lowerBound *= traits.spores.vars()[1];
+                //    }
+                //}
                 if (global.tech['reproduction'] && global.tech.reproduction >= 2 && global.city['hospital']){
                     lowerBound += global.city.hospital.count;
                 }
@@ -4183,7 +4183,7 @@ function fastLoop(){
             if (global.arpa['sequence'] && global.arpa.sequence.on && global.arpa.sequence.time > 0 && sequenceLabs() > 0){
                 let gene_cost = 50 + (global.race.mutation * 10);
                 if (global.arpa.sequence.boost){
-                    gene_cost *= 4;
+                    gene_cost *= 1;
                 }
                 if (gene_cost * time_multiplier <= global.resource.Knowledge.amount){
                     gene_consume = gene_cost;
@@ -8707,8 +8707,8 @@ function midLoop(){
             }
         }
         if (global.race['slaver'] && global.tech['slaves'] && global.city['slave_pen']) {
-            caps['Slave'] = global.city.slave_pen.count * 4;
-            breakdown.c.Slave[loc('city_slave_housing',[global.resource.Slave.name])] = global.city.slave_pen.count * 4 + 'v';
+            caps['Slave'] = global.city.slave_pen.count * 5;
+            breakdown.c.Slave[loc('city_slave_housing',[global.resource.Slave.name])] = global.city.slave_pen.count * 5 + 'v';
 
             if (caps['Slave'] < global.resource.Slave.amount){
                 global.resource.Slave.amount = caps['Slave'];
@@ -10699,10 +10699,10 @@ function midLoop(){
         if (global.arpa['sequence'] && global.arpa.sequence.on && gene_sequence){
             let labs = sequenceLabs();
             global.arpa.sequence.labs = labs;
-            global.arpa.sequence.time -= global.arpa.sequence.boost ? labs * 2 : labs;
+            global.arpa.sequence.time -= global.arpa.sequence.boost ? labs * 10 : labs * 10;
             global.arpa.sequence.progress = global.arpa.sequence.max - global.arpa.sequence.time;
             if (global.arpa.sequence.time <= 0){
-                global.arpa.sequence.max = 50000 * (1 + (global.race.mutation ** 2));
+                global.arpa.sequence.max = 100 * (1 + (global.race.mutation ** 2));
                 if (global.race['adaptable']){
                     let adapt = 1 - (traits.adaptable.vars()[0] / 100);
                     global.arpa.sequence.max = Math.floor(global.arpa.sequence.max * adapt);
@@ -11727,7 +11727,7 @@ function longLoop(){
                 global.city.calendar.temp = 1;
                 global.city.calendar.weather = -1;
             }
-            else if (Math.rand(0,5) === 0){
+            else if (Math.rand(0,5) === 6){
                 let temp = Math.rand(0,3);
                 let sky = Math.rand(0,5);
                 let wind = Math.rand(0,3);

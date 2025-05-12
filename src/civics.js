@@ -771,7 +771,7 @@ function trainSpy(i){
         let cost = spyCost(i)
         if (global.resource.Money.amount >= cost){
             global.resource.Money.amount -= cost;
-            let time = 300;
+            let time = 10;
             if (global.tech['spy'] >= 3 && global.city['boot_camp']){
                 time -= (global.race['orbit_decayed'] && global.space['space_barracks'] ? global.space.space_barracks.on : global.city['boot_camp'].count) * 10;
                 if (time < 10){
@@ -1351,7 +1351,7 @@ export function buildGarrison(garrison,full){
                 return eventActive('fool',2021) ? garrisonSize() - w : w;
             },
             trainTime(r,p){
-                return r === 0 ? timeFormat(-1) : timeFormat((100 - p) / (r * 4));
+                return r === 0 ? timeFormat(-1) : timeFormat((100 - p) / (r * 12));
             }
         }
     });

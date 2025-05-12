@@ -95,9 +95,9 @@ export const atomic_mass = {
     Stone: 20.017,
     Crystal: 5.062,
     Furs: 13.009,
-    Copper: 63.546,
+    Copper: 120.546,
     Iron: 55.845,
-    Aluminium: 26.9815,
+    Aluminium: 120.9815,
     Cement: 20.009,
     Coal: 12.0107,
     Oil: 5.342,
@@ -156,7 +156,7 @@ export const supplyValue = {
     Deuterium: { in: 4, out: 1000 },
     Neutronium: { in: 15, out: 1000 },
     Adamantite: { in: 12.5, out: 1000 },
-    Infernite: { in: 25, out: 250 },
+    Infernite: { in: 50, out: 200 },
     Elerium: { in: 30, out: 250 },
     Nano_Tube: { in: 6.5, out: 1000 },
     Graphene: { in: 5, out: 1000 },
@@ -3206,7 +3206,7 @@ export const plasmidBonus = (function (){
             let anti = 0; 
             if (global.race.universe !== 'antimatter' || global.genes['bleed']){
                 let active = global.race.p_mutation + (global.race['wish'] && global.race['wishStats'] ? global.race.wishStats.plas : 0);
-                let plasmids = global.race['no_plasmid'] ? Math.min(active, global.prestige.Plasmid.count) : global.prestige.Plasmid.count;
+                let plasmids = global.race['no_plasmid'] ? global.prestige.Plasmid.count : global.prestige.Plasmid.count;
                 if (global.race.universe === 'antimatter' && global.genes['bleed']){
                     plasmids *= 0.025
                 }

@@ -152,11 +152,11 @@ export function loopTimers(){
     }
 
     // Main loop takes 250ms without any modifiers.
-    const webWorkerMainTimer = Math.floor(250 * modifier);
+    const webWorkerMainTimer = 20;
     // Mid loop takes 1000ms without any modifiers.
-    const baseMidTimer = webWorker.midRatio * webWorkerMainTimer;
+    const baseMidTimer = 200;
     // Long loop (game day) takes 5000ms without any modifiers.
-    const baseLongTimer = webWorker.longRatio * webWorkerMainTimer;
+    const baseLongTimer = 1500;
     // The constant by which the time is accelerated when atrack.t > 0.
     const timeAccelerationFactor = 2;
 
@@ -1415,7 +1415,7 @@ export const calcPillar = (function(){
                 }
             });
             bonus = [
-                1 + (active / 100), // Production
+                1 + (active * 2/ 100), // Production
                 1 + (active * 2 / 100) // Storage
             ];
         }
@@ -1639,7 +1639,10 @@ export function calcPrestige(type,inputs){
     else {
         gains.plasmid = inputs.plas;
     }
+    gains.plasmid *= 2;
+
     gains.phage = gains.plasmid > 0 ? challenge_multiplier(Math.floor(Math.log2(gains.plasmid) * Math.E * phage_mult),type,false,inputs) : 0;
+    gains.phage *= 2;
 
     if (type === 'bigbang'){
         let exotic = inputs.exotic;
@@ -1660,6 +1663,7 @@ export function calcPrestige(type,inputs){
         new_dark = challenge_multiplier(new_dark,'vacuum',3,inputs);
         gains.dark = new_dark;
     }
+    gains.dark *= 2;
 
 
     if (['ascend','descend','terraform','apotheosis'].includes(type)){
@@ -1699,7 +1703,7 @@ export function calcPrestige(type,inputs){
             else {
                 spire = global.portal.hasOwnProperty('spire') ? global.portal.spire.count : 0;
             }
-            [50,100].forEach(function(x){
+            [50,100,150,200,250,300,350,400,500,600,700].forEach(function(x){
                 if (spire > x){
                     artifact++;
                 }
@@ -1722,7 +1726,7 @@ export function calcPrestige(type,inputs){
     }
 
     if (type === 'ai'){
-        gains.cores = universe === 'micro' ? 2 : 5;
+        gains.cores = universe === 'micro' ? 4 : 10;
     }
     
     if (global.stats.pdebt > 0){
@@ -1735,6 +1739,9 @@ export function calcPrestige(type,inputs){
             gains.pdebt = 0;
         }
     }
+    gains.harmony *= 2;
+    gains.artifact *= 2;
+    gains.cores *= 2;
 
     return gains;
 }

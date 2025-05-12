@@ -1359,9 +1359,9 @@ export const actions = {
             cost: {
                 Money(){ return 25000; },
             },
-            queue_complete(){ return global.city['slave_pen'] ? global.city.slave_pen.count * 4 - global.resource.Slave.amount : 0; },
+            queue_complete(){ return global.city['slave_pen'] ? global.city.slave_pen.count * 5 - global.resource.Slave.amount : 0; },
             action(args){
-                if (global.city['slave_pen'] && global.city.slave_pen.count * 4 > global.resource.Slave.amount){
+                if (global.city['slave_pen'] && global.city.slave_pen.count * 5 > global.resource.Slave.amount){
                     if (payCosts($(this)[0])){
                         global.resource.Slave.amount++;
                         return true;
@@ -1438,11 +1438,11 @@ export const actions = {
             reqs: { housing: 2 },
             not_trait: ['cataclysm','lone_survivor'],
             cost: {
-                Money(offset){ return costMultiplier('cottage', offset, 900, 1.15); },
-                Plywood(offset){ return costMultiplier('cottage', offset, 25, 1.25); },
-                Brick(offset){ return costMultiplier('cottage', offset, 20, 1.25); },
-                Wrought_Iron(offset){ return costMultiplier('cottage', offset, 15, 1.25); },
-                Iron(offset){ return global.city.ptrait.includes('unstable') ? costMultiplier('cottage', offset, 5, 1.25) : 0; },
+                Money(offset){ return costMultiplier('cottage', offset, 450, 1.15); },
+                Plywood(offset){ return costMultiplier('cottage', offset, 15, 1.20); },
+                Brick(offset){ return costMultiplier('cottage', offset, 5, 1.20); },
+                Wrought_Iron(offset){ return costMultiplier('cottage', offset, 5, 1.20); },
+                Iron(offset){ return global.city.ptrait.includes('unstable') ? costMultiplier('cottage', offset, 5, 1.20) : 0; },
                 Horseshoe(){ return global.race['hooved'] ? 2 : 0; }
             },
             effect(){
@@ -1470,7 +1470,7 @@ export const actions = {
                 };
             },
             citizens(){
-                let pop = 2;
+                let pop = 3;
                 if (global.race['high_pop']){
                     pop *= traits.high_pop.vars()[0];
                 }
@@ -1663,20 +1663,20 @@ export const actions = {
             reqs: { slaves: 1 },
             not_trait: ['cataclysm','lone_survivor'],
             cost: {
-                Money(offset){ return costMultiplier('slave_pen', offset, 250, 1.32); },
-                Lumber(offset){ return costMultiplier('slave_pen', offset, 100, 1.36); },
-                Stone(offset){ return costMultiplier('slave_pen', offset, 75, 1.36); },
-                Copper(offset){ return costMultiplier('slave_pen', offset, 10, 1.36); },
-                Nanite(offset){ return global.race['deconstructor'] ? costMultiplier('slave_pen', offset, 4, 1.36) : 0; },
+                Money(offset){ return costMultiplier('slave_pen', offset, 250, 1.25); },
+                Lumber(offset){ return costMultiplier('slave_pen', offset, 100, 1.25); },
+                Stone(offset){ return costMultiplier('slave_pen', offset, 75, 1.25); },
+                Copper(offset){ return costMultiplier('slave_pen', offset, 10, 1.25); },
+                Nanite(offset){ return global.race['deconstructor'] ? costMultiplier('slave_pen', offset, 4, 1.25) : 0; },
             },
             effect(){
-                return `<div>${loc('plus_max_resource',[4,global.resource.Slave.name])}</div>`;
+                return `<div>${loc('plus_max_resource',[5,global.resource.Slave.name])}</div>`;
             },
             action(args){
                 if (payCosts($(this)[0])){
                     incrementStruct('slave_pen','city');
                     global.resource.Slave.display = true;
-                    global.resource.Slave.max = global.city.slave_pen.count * 4;
+                    global.resource.Slave.max = global.city.slave_pen.count * 5;
                     return true;
                 }
                 return false;
@@ -1776,7 +1776,7 @@ export const actions = {
                 };
             },
             citizens(){
-                let pop = 1;
+                let pop = 2;
                 if (global.race['high_pop']){
                     pop *= traits.high_pop.vars()[0];
                 }
@@ -1859,7 +1859,7 @@ export const actions = {
                 Iron(offset){ return costMultiplier('mill', offset, 150, 1.33); },
                 Cement(offset){ return costMultiplier('mill', offset, 125, 1.33); },
             },
-            powered(){ return powerModifier(global.race['environmentalist'] ? -1.5 : -1); },
+            powered(){ return powerModifier(global.race['environmentalist'] ? -3 : -2); },
             power_reqs: { agriculture: 6 },
             effect(){
                 if (global.tech['agriculture'] >= 6){
@@ -1908,7 +1908,7 @@ export const actions = {
                 Cement(offset){ return costMultiplier('windmill', offset, 125, 1.33); },
             },
             effect(){
-                let power = $(this)[0].powered() * -1;
+                let power = $(this)[0].powered() * -2;
                 return `<div>${loc('space_dwarf_reactor_effect1',[power])}</div>`;
             },
             action(args){
@@ -3039,8 +3039,10 @@ export const actions = {
                     global.civic.coal_miner.display = true;
                     global.civic.coal_miner.max = jobScale(global.city.coal_mine.count);
                     powerOnNewStruct($(this)[0]);
+                    global.resource.Steel.display = true;
                     return true;
                 }
+                global.resource.Steel.display = true;
                 return false;
             },
             struct(){
@@ -3755,12 +3757,12 @@ export const actions = {
             reqs: { science: 2 },
             not_trait: ['cataclysm','lone_survivor'],
             cost: {
-                Money(offset){ return costMultiplier('library', offset, 45, 1.2); },
-                Crystal(offset){ return global.race.universe === 'magic' ? costMultiplier('library', offset, 2, 1.2) : 0; },
-                Iron(offset){ return global.city.ptrait.includes('unstable') ? costMultiplier('library', offset, 4, 1.2) : 0; },
-                Furs(offset){ return costMultiplier('library', offset, 22, 1.2); },
-                Plywood(offset){ return costMultiplier('library', offset, 20, 1.2); },
-                Brick(offset){ return costMultiplier('library', offset, 15, 1.2); }
+                Money(offset){ return costMultiplier('library', offset, 45, 1.15); },
+                Crystal(offset){ return global.race.universe === 'magic' ? costMultiplier('library', offset, 2, 1.15) : 0; },
+                Iron(offset){ return global.city.ptrait.includes('unstable') ? costMultiplier('library', offset, 4, 1.15) : 0; },
+                Furs(offset){ return costMultiplier('library', offset, 22, 1.15); },
+                Plywood(offset){ return costMultiplier('library', offset, 20, 1.15); },
+                Brick(offset){ return costMultiplier('library', offset, 15, 1.15); }
             },
             effect(){
                 let gain = 125;
@@ -4022,7 +4024,7 @@ export const actions = {
                 return global.race['environmentalist'] ? `+${power}MW` : `<span>+${power}MW.</span> <span class="has-text-caution">${loc(global.race.universe === 'magic' ? 'city_mana_engine_effect' : 'city_coal_power_effect',[consume])}</span>`;
             },
             powered(wiki){
-                let power = global.stats.achieve['dissipated'] && global.stats.achieve['dissipated'].l >= 1 ? -6 : -5;
+                let power = global.stats.achieve['dissipated'] && global.stats.achieve['dissipated'].l >= 1 ? -7 : -6;
                 if (!wiki && global.race['environmentalist']){
                     power += traits.environmentalist.vars()[0];
                 }
@@ -4082,10 +4084,10 @@ export const actions = {
             powered(wiki){
                 let power = 0;
                 if (global.stats.achieve['dissipated'] && global.stats.achieve['dissipated'].l >= 3){
-                    power = global.stats.achieve['dissipated'].l >= 5 ? -8 : -7;
+                    power = global.stats.achieve['dissipated'].l >= 5 ? -9 : -8;
                 }
                 else {
-                    power = -6;
+                    power = -7;
                 }
                 if (!wiki && global.race['environmentalist']){
                     power -= traits.environmentalist.vars()[0];
@@ -4135,7 +4137,7 @@ export const actions = {
                 let consume = 0.1;
                 return `<span>+${-($(this)[0].powered())}MW.</span> <span class="has-text-caution">${loc('city_fission_power_effect',[consume])}</span>`;
             },
-            powered(){ return powerModifier(global.tech['uranium'] >= 4 ? -18 : -14); },
+            powered(){ return powerModifier(global.tech['uranium'] >= 4 ? -20 : -16); },
             p_fuel(){ return { r: 'Uranium', a: 0.1 }; },
             action(args){
                 if (payCosts($(this)[0])){

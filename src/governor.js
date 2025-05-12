@@ -27,7 +27,8 @@ export const gmen = {
         title: [loc('governor_criminal_t1'),loc('governor_criminal_t2'),{ m: loc('governor_criminal_t3m'), f: loc('governor_criminal_t3f') }],
         traits: {
             noquestions: 1,
-            racketeer: 1
+            racketeer: 1,
+            athleticism: 1
         }
     },
     entrepreneur: {
@@ -136,7 +137,7 @@ export const gov_traits = {
             if (typeof(b) === 'undefined'){
                 b = global.genes.hasOwnProperty('governor') && global.genes.governor >= 3 ? true : false;
             } 
-            return b ? [18,45] : [20,35]; 
+            return b ? [5,45] : [5,35]; 
         },
     },
     dealmaker: {
@@ -270,7 +271,7 @@ export const gov_traits = {
             if (typeof(b) === 'undefined'){
                 b = global.genes.hasOwnProperty('governor') && global.genes.governor >= 3 ? true : false;
             }
-            return b ? [1.5,2,3] : [1.5,2,4]; 
+            return b ? [1.5,2,0] : [1.5,2,0];
         },
     },
     nopain: {
@@ -455,8 +456,8 @@ export function drawnGovernOffice(){
     { // Crate/Container Construction
         if (!global.race.governor.config.hasOwnProperty('storage')){
             global.race.governor.config['storage'] = {
-                crt: 1000,
-                cnt: 1000
+                crt: 100,
+                cnt: 100
             };
         }
 
@@ -528,7 +529,7 @@ export function drawnGovernOffice(){
     { // Spy Recruitment
         if (!global.race.governor.config.hasOwnProperty('spy')){
             global.race.governor.config['spy'] = {
-                reserve: 100
+                reserve: 80
             };
         }
 
@@ -1202,7 +1203,7 @@ export const gov_tasks = {
                 slaveCost *= 1 + (extraVal / 100);
             }
             if ( $(this)[0].req() && global.resource.Money.amount >= slaveCost && (global.resource.Money.diff >= slaveCost || global.resource.Money.amount + global.resource.Money.diff >= cashCap) ){
-                let max = global.city.slave_pen.count * 4;
+                let max = global.city.slave_pen.count * 5;
                 if (max > global.resource.Slave.amount){
                     actions.city.slave_market.action();
                 }

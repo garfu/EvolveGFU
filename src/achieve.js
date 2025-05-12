@@ -1053,7 +1053,7 @@ export const perkList = {
     blackhole: {
         name: loc(`achieve_blackhole_name`),
         desc(wiki){
-            let bonus = wiki ? "5/10/15/20/25" : global.stats.achieve['blackhole'] ? global.stats.achieve.blackhole.l * 5 : 5;
+            let bonus = wiki ? "5/10/15/20/25" : global.stats.achieve['blackhole'] ? global.stats.achieve.blackhole.l * 10 : 10;
             return loc("achieve_perks_blackhole",[bonus]);
         },
         active(){
