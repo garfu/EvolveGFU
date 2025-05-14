@@ -1059,7 +1059,7 @@ function fastLoop(){
     if (global.city.ptrait.includes('ozone') && global.city['sun']){
         let uv = global.city['sun'] * planetTraits.ozone.vars()[0];
         breakdown.p['Global'][loc('planet_ozone_bd')] = `-${uv}%`;
-        global_multiplier *= 1 - (uv / 100);
+        global_multiplier *= 1;
     }
     let phoenixFathom = fathomCheck('phoenix');
     if ((global.race['smoldering'] || phoenixFathom > 0) && global.city['hot']){
@@ -1086,7 +1086,7 @@ function fastLoop(){
         global_multiplier *= 1 + (heat / 100);
     }
     if (global.race['heat_intolerance'] && global.city['hot']){
-        let heat = Math.min(100, global.city['hot'] * traits.heat_intolerance.vars()[0]);
+        let heat = Math.min(20, global.city['hot'] * traits.heat_intolerance.vars()[0]);
         breakdown.p['Global'][loc('hot')] = `-${heat}%`;
         global_multiplier *= 1 - (heat / 100);
     }

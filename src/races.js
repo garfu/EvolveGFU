@@ -2571,7 +2571,7 @@ export const traits = {
         type: 'major',
         origin: 'entish',
         taxonomy: 'resource',
-        val: -120,
+        val: -350,
         vars(r){
             switch (r || traitRank('kindling_kindred') || 1){
                 case 0.1:

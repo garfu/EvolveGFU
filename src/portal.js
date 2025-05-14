@@ -4751,7 +4751,7 @@ export function bloodwar(){
             }
         }
 
-        let cap = global.tech.hell_pit >= 6 ? 750000 : 1000000;
+        let cap = global.tech.hell_pit >= 6 ? 100000 : 100000;
         if (global.tech.hell_pit >= 7 && p_on['soul_attractor'] > 0){
             cap *= (global.stats.achieve['what_is_best'] && global.stats.achieve.what_is_best.e >= 3 ? 0.96 : 0.97) ** p_on['soul_attractor'];
         }
@@ -4951,7 +4951,7 @@ export function hellguard(){
             global.portal.soul_forge.kills += souls;
         }
 
-        let cap = global.tech.hell_pit >= 6 ? 750000 : 1000000;
+        let cap = global.tech.hell_pit >= 6 ? 100000 : 100000;
         if (global.tech.hell_pit >= 7 && p_on['soul_attractor'] > 0){
             cap *= (global.stats.achieve['what_is_best'] && global.stats.achieve.what_is_best.e >= 3 ? 0.96 : 0.97) ** p_on['soul_attractor'];
         }
