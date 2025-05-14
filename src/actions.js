@@ -1,4 +1,4 @@
-import { global, save, seededRandom, webWorker, keyMultiplier, keyMap, srSpeak, sizeApproximation, p_on, support_on, int_on, gal_on, spire_on, tmp_vars, setupStats } from './vars.js';
+import { global, save, seededRandom, webWorker, keyMultiplier, keyMap, srSpeak, sizeApproximation, p_on, support_on, int_on, gal_on, spire_on, tmp_vars, setupStats, callback_queue } from './vars.js';
 import { loc } from './locale.js';
 import { timeCheck, timeFormat, vBind, popover, clearPopper, flib, tagEvent, clearElement, costMultiplier, darkEffect, genCivName, powerModifier, powerCostMod, calcPrestige, adjustCosts, modRes, messageQueue, buildQueue, format_emblem, shrineBonusActive, calc_mastery, calcPillar, calcGenomeScore, getShrineBonus, eventActive, easterEgg, getHalloween, trickOrTreat, deepClone, hoovedRename, get_qlevel } from './functions.js';
 import { unlockAchieve, challengeIcon, alevel, universeAffix, checkAdept } from './achieve.js';
@@ -5967,6 +5967,7 @@ export function gainTech(action){
     renderEdenic();
 }
 
+export var cLabels = global.settings['cLabels'];
 export function drawCity(){
     if (!global.settings.tabLoad && (global.settings.civTabs !== 1 || global.settings.spaceTabs !== 0)){
         return;
@@ -6030,6 +6031,8 @@ export function drawCity(){
             });
         }
     });
+
+    cLabels = global.settings['cLabels'];
 }
 
 export function drawTech(){
@@ -6345,9 +6348,7 @@ export function setAction(c_action,action,type,old,prediction){
                     }
                 }
                 if (c_action['postPower']){
-                    setTimeout(function(){
-                        c_action.postPower(true);
-                    }, 250);
+                    callback_queue.set([c_action, 'postPower'], [true]);
                 }
             },
             power_off(){
@@ -6361,9 +6362,7 @@ export function setAction(c_action,action,type,old,prediction){
                     }
                 }
                 if (c_action['postPower']){
-                    setTimeout(function(){
-                        c_action.postPower(false);
-                    }, 250);
+                    callback_queue.set([c_action, 'postPower'], [false]);
                 }
             },
             repair(){
@@ -6462,9 +6461,7 @@ function runAction(c_action,action,type){
                 if (!(global.settings.qKey && keyMap.q) && checkTechRequirements(type,false) && c_action.action({isQueue: false})){
                     gainTech(type);
                     if (c_action['post']){
-                        setTimeout(function(){
-                            c_action.post();
-                        }, 250);
+                        callback_queue.set([c_action, 'post'], []);
                     }
                 }
                 else {
@@ -6496,9 +6493,7 @@ function runAction(c_action,action,type){
                         gainBlood(type);
                     }
                     if (c_action['post']){
-                        setTimeout(function(){
-                            c_action.post();
-                        }, 250);
+                        callback_queue.set([c_action, 'post'], []);
                     }
                 }
                 break;
@@ -6618,9 +6613,7 @@ export function postBuild(c_action,action,type){
         }
     }
     if (c_action['post']){
-        setTimeout(function(){
-            c_action.post();
-        }, 250);
+        callback_queue.set([c_action, 'post'], []);
     }
     updateDesc(c_action,action,type);
 }
@@ -9702,4 +9695,20 @@ export function start_cataclysm(){
         delete global.race['start_cataclysm'];
         sentience();
     }
+}
+
+var callback_repeat = new Map();
+export function doCallbacks(){
+    for (const [[c_action, func], args] of callback_queue){
+        // If the function returns true, then it wants to be called again in the future
+        if (c_action[func](...args)){
+            callback_repeat.set([c_action, func], args);
+        }
+    }
+    // Remove all registered callbacks, then reinsert any callbacks that want to be repeated
+    callback_queue.clear();
+    for (const [[c_action, func], args] of callback_repeat){
+        callback_queue.set([c_action, func], args);
+    }
+    callback_repeat.clear();
 }
