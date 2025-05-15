@@ -3360,7 +3360,7 @@ const fortressModules = {
             reqs: { hell_spire: 9 },
             cost: {
                 Money(offset){ return spaceCostMultiplier('mechbay', offset, 100000000, 1.2, 'portal'); },
-                Supply(offset){ return spaceCostMultiplier('mechbay', offset, 250000, 1.2, 'portal'); },
+                Supply(offset){ return spaceCostMultiplier('mechbay', offset, 250000, 1.18, 'portal'); }, //garfu
             },
             powered(){ return 0; },
             s_type: 'spire',
