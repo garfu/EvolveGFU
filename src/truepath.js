@@ -4519,7 +4519,7 @@ export function shipPower(ship, wiki){
             watts = Math.round((ship.class === 'explorer' || wiki ? 350 : 350) * out_inflate);
             break;
         case 'elerium':
-            watts = Math.round(400 * out_inflate);
+            watts = Math.round(600 * out_inflate);
             break;
     }
 
@@ -4527,43 +4527,43 @@ export function shipPower(ship, wiki){
 
     switch (ship.weapon){
         case 'railgun':
-            watts -= Math.round(10 * use_inflate);
+            watts -= Math.round(5 * use_inflate);
             break;
         case 'laser':
-            watts -= Math.round(30 * use_inflate);
+            watts -= Math.round(10 * use_inflate);
             break;
         case 'p_laser':
-            watts -= Math.round(18 * use_inflate);
+            watts -= Math.round(15 * use_inflate);
             break;
         case 'plasma':
-            watts -= Math.round(50 * use_inflate);
+            watts -= Math.round(20 * use_inflate);
             break;
         case 'phaser':
-            watts -= Math.round(65 * use_inflate);
+            watts -= Math.round(25 * use_inflate);
             break;
         case 'disruptor':
-            watts -= Math.round(100 * use_inflate);
+            watts -= Math.round(40 * use_inflate);
             break;
     }
 
     switch (ship.engine){
         case 'ion':
-            watts -= Math.round(50 * use_inflate);
+            watts -= Math.round(40 * use_inflate);
             break;
         case 'tie':
-            watts -= Math.round(100 * use_inflate);
-            break;
-        case 'pulse':
             watts -= Math.round(80 * use_inflate);
             break;
+        case 'pulse':
+            watts -= Math.round(120 * use_inflate);
+            break;
         case 'photon':
-            watts -= Math.round(150 * use_inflate);
+            watts -= Math.round(160 * use_inflate);
             break;
         case 'vacuum':
-            watts -= Math.round(240 * use_inflate);
+            watts -= Math.round(200 * use_inflate);
             break;
         case 'emdrive':
-            watts -= Math.round((ship.class !== 'explorer' && !wiki ? 2000 : 1000) * use_inflate);
+            watts -= Math.round((ship.class !== 'explorer' && !wiki ? 300 : 100) * use_inflate);
             break;
     }
 
@@ -4656,15 +4656,15 @@ export function shipSpeed(ship){
     let boost = ship.location === 'spc_dwarf' && p_on['m_relay'] && ship.transit === 0 && global.space['m_relay'] && global.space.m_relay.charged >= 10000 ? 3 : 1;
     switch (ship.engine){
         case 'ion':
-            return 12 / mass * boost;
+            return 20 / mass * boost;
         case 'tie':
-            return 22 / mass * boost;
+            return 40 / mass * boost;
         case 'pulse':
-            return 18 / mass * boost;
+            return 60 / mass * boost;
         case 'photon':
-            return 30 / mass * boost;
+            return 80 / mass * boost;
         case 'vacuum':
-            return 42 / mass * boost;
+            return 100 / mass * boost;
         case 'emdrive':
             return 37500 / mass * boost;
     }
@@ -5346,11 +5346,11 @@ export function sensorRange(s){
         case 'visual':
             return 1;
         case 'radar':
-            return 10 * hf;
+            return 20 * hf;
         case 'lidar':
-            return 18 * hf;
+            return 36 * hf;
         case 'quantum':
-            return 32 * hf;
+            return 64 * hf;
     }
 }
 

@@ -28,7 +28,9 @@ export const gmen = {
         traits: {
             noquestions: 1,
             racketeer: 1,
-            athleticism: 1
+            athleticism: 1,
+            tactician: 1,
+            militant: 1
         }
     },
     entrepreneur: {
@@ -122,7 +124,7 @@ export const gov_traits = {
             if (typeof(b) === 'undefined'){
                 b = global.genes.hasOwnProperty('governor') && global.genes.governor >= 3 ? true : false;
             }
-            return b ? [30,10] : [25,10]; 
+            return b ? [30,0] : [25,0]; 
         },
     },
     noquestions: {

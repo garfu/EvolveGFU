@@ -10156,7 +10156,7 @@ function midLoop(){
             unemployed -= miners;
 
             let heal_chance = global.tech['tech_womling_firstaid'] ? 3 : 4;
-            if (Math.rand(0,10) === 0){
+            if (Math.rand(0) === 0){ //garfu
                 let raw = Math.rand(0,miners + scientist);
                 if (raw > injured){
                     injured = raw;
