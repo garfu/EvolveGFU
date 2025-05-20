@@ -457,13 +457,13 @@ export const traits = {
                 case 0.5:
                     return [0.02,0.005];
                 case 1:
-                    return [0.03,0.010];
-                case 2:
-                    return [0.04,0.015];
-                case 3:
-                    return [0.05,0.020];
-                case 4:
                     return [0.06,0.025];
+                case 2:
+                    return [0.07,0.025];
+                case 3:
+                    return [0.08,0.025];
+                case 4:
+                    return [0.09,0.025];
             }
         },
     },

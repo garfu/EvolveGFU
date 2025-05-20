@@ -11563,7 +11563,7 @@ const techs = {
             return global.race['universe'] === 'magic' && global.race['witch_hunter'] ? true : false;
         },
         cost: {
-            Mana(){ return 500; },
+          //  Mana(){ return 500; },
             Knowledge(){ return 8200; },
             Crystal(){ return 1000; }
         },

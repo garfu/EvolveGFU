@@ -10017,7 +10017,7 @@ function midLoop(){
                     wards *= 1.25;
                 }
                 breakdown.c.Sus[loc('city_conceal_ward')] = -(wards)+'v';
-                sus -= wards;
+                sus -= (wards * 5);
             }
 
             if (sus < 0){ sus = 0; }

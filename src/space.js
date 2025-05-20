@@ -5463,7 +5463,7 @@ const galaxyProjects = {
                 Wrought_Iron(offset){ return spaceCostMultiplier('defense_platform', offset, 75000, 1.25, 'galaxy'); },
             },
             effect(wiki){
-                return `<div class="has-text-advanced">${loc('galaxy_defense_platform_effect',[20])}</div><div class="has-text-caution">${loc('minus_power',[$(this)[0].powered(wiki)])}</div>`;
+                return `<div class="has-text-advanced">${loc('galaxy_defense_platform_effect',[40])}</div><div class="has-text-caution">${loc('minus_power',[$(this)[0].powered(wiki)])}</div>`;
             },
             powered(wiki){ return powerCostMod(isStargateOn(wiki) ? 5 : 0); },
             postPower(o){
@@ -6527,7 +6527,7 @@ export function piracy(region,rating,raw,wiki){
 
         let num_def_plat_on = wiki ? (global.galaxy?.defense_platform?.on ?? 0) : p_on['defense_platform'];
         if (region === 'gxy_stargate' && num_def_plat_on){
-            armada += num_def_plat_on * 20;
+            armada += num_def_plat_on * 40;
         }
 
         let num_starbase_on = wiki ? (global.galaxy?.starbase?.on ?? 0) : p_on['starbase'];

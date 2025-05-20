@@ -2443,11 +2443,11 @@ export const actions = {
             not_trait: ['cataclysm','orbit_decayed'],
             cost: {
                 Money(offset){return costMultiplier('conceal_ward', offset, 500, 1.25);  },
-                Mana(offset){ return costMultiplier('conceal_ward', offset, conceal_adjust(42), 1.25); },
+               // Mana(offset){ return costMultiplier('conceal_ward', offset, conceal_adjust(42), 1.25); },
                 Crystal(offset){ return costMultiplier('conceal_ward', offset, 5, 1.25); }
             },
             effect(){
-                let ward = global.tech['roguemagic'] && global.tech.roguemagic >= 8 ? 1.25 : 1;
+                let ward = global.tech['roguemagic'] && global.tech.roguemagic >= 8 ? 5 : 5;
                 return `<div>${loc('city_conceal_ward_effect',[ward])}</div>`;
             },
             action(args){
