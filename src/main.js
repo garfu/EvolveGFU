@@ -3518,7 +3518,7 @@ function fastLoop(){
                     if (!global.race['submerged']){
                         if (global.city.calendar.temp === 0){
                             if (global.city.calendar.weather === 0){
-                                weather_multiplier *= global.race['chilled'] ? (1 + traits.chilled.vars()[3] / 100) : 0.7;
+                                weather_multiplier *= global.race['chilled'] ? (1 + traits.chilled.vars()[3] / 100) :1;
                             }
                             else {
                                 weather_multiplier *= global.race['chilled'] ? (1 + traits.chilled.vars()[4] / 100) : 0.85;
