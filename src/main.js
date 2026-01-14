@@ -11905,7 +11905,7 @@ function longLoop(){
                 global.city.sun = 0;
             }
             if (global.city.calendar.temp === 0){
-                global.city.cold++;
+                global.city.cold = 0; //garfu
             }
             else {
                 global.city.cold = 0;

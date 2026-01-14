@@ -10,7 +10,7 @@
     "build-debug-win": "npm run evolve-debug && npm run evolve-less-win && npm run wiki-debug && npm run wiki-less-win",
     "evolve": "node buildEvolve.js",
     "evolve-debug": "node buildEvolveDebug.js",
-    "evolve-less": "lessc src/evolve.less evolve/evolve-unminified.css && csso -i evolve/evolve-unminified.css -o evolve/evolve.css && rm evolve/evolve-unminified.css",
+    "evolve-less": "lessc src/evolve.less evolve/evolve-unminified.css && csso -i evolve/evolve-unminified.css -o evolve/evolve.css &&  evolve/evolve-unminified.css",
     "evolve-less-win": "lessc src/evolve.less evolve/evolve-unminified.css && csso -i evolve/evolve-unminified.css -o evolve/evolve.css && del evolve\\evolve-unminified.css",
     "wiki": "node buildWiki.js",
     "wiki-debug": "node buildWikiDebug.js",
