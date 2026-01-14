@@ -1390,12 +1390,12 @@ function fastLoop(){
                         weather_morale = -(traits.skittish.vars()[0]);
                     }
                     else {
-                        weather_morale = global.race['leathery'] ? -(traits.leathery.vars()[0]) : -5;
+                        weather_morale = global.race['leathery'] ? -(traits.leathery.vars()[0]) : 0;
                     }
                 }
                 else {
                     // Rain
-                    weather_morale = global.race['leathery'] ? 0 : -2;
+                    weather_morale = global.race['leathery'] ? 0 :0;
                 }
             }
         }
@@ -1418,7 +1418,7 @@ function fastLoop(){
             }
         }
         if (global.race['snowy'] && (global.city.calendar.temp !== 0 || global.city.calendar.weather !== 0)){
-            weather_morale -= global.city.calendar.temp >= 2 ? traits.snowy.vars()[1] : traits.snowy.vars()[0];
+            weather_morale -= global.city.calendar.temp >= 2 ? 0 : 0;
         }
 
         global.city.morale.weather = global.race['submerged'] ? 0 : weather_morale;
