@@ -1743,6 +1743,7 @@ export function calcPrestige(type,inputs){
     gains.harmony *= 2;
     gains.artifact *= 2;
     gains.cores *= 2;
+    gains.supercoiled *= 2;
 
     return gains;
 }

@@ -2571,7 +2571,7 @@ export const traits = {
         type: 'major',
         origin: 'entish',
         taxonomy: 'resource',
-        val: -550,
+        val: -650,
         vars(r){
             switch (r || traitRank('kindling_kindred') || 1){
                 case 0.1:
@@ -4638,19 +4638,19 @@ export const traits = {
             // [Wish Cooldown Period]
             switch (r || traitRank('wish') || 1){
                 case 0.1:
-                    return [2520];
+                    return [2000];
                 case 0.25:
-                    return [2160];
+                    return [1500];
                 case 0.5:
-                    return [1800];
+                    return [1000];
                 case 1:
-                    return [1440];
+                    return [500];
                 case 2:
-                    return [1080];
+                    return [250];
                 case 3:
-                    return [720];
+                    return [100];
                 case 4:
-                    return [540];
+                    return [50]; //garfu
             }
         }
     },

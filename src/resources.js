@@ -155,7 +155,7 @@ export const supplyValue = {
     Helium_3: { in: 4.5, out: 12000 },
     Deuterium: { in: 4, out: 1000 },
     Neutronium: { in: 15, out: 1000 },
-    Adamantite: { in: 12.5, out: 1000 },
+    Adamantite: { in: 60, out: 1000 }, //garfu
     Infernite: { in: 60, out: 200 },
     Elerium: { in: 30, out: 250 },
     Nano_Tube: { in: 6.5, out: 1000 },

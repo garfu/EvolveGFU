@@ -10908,6 +10908,7 @@ function midLoop(){
                 if (global.genes['blood'] && global.genes['blood'] >= 2){
                     stones *= 2;
                 }
+                stones += Math.floor((global.portal.spire.count / 10))npm ;
                 global.prestige.Blood_Stone.count += stones;
                 global.stats.blood += stones;
                 arpa('Blood');

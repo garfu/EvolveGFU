@@ -207,7 +207,7 @@ export const arpaProjects = {
                 routes += global.city['storage_yard'] ? Math.floor(global.city.storage_yard.count / 6) : 0;
                 desc = loc('arpa_projects_railway_effect1',[routes,profit,6,1]);
             }
-            if (global.tech['hell_lake'] && global.tech.hell_lake >= 7){
+            if (global.tech['hell_lake'] && global.tech.hell_lake >= 1){ //garfu
                 desc += ` ${loc('arpa_projects_railway_highway',[1,global.resource.Asphodel_Powder.name,loc('eden_asphodel_harvester_title'),1])}`;
             }
             return desc;
@@ -1654,7 +1654,7 @@ function monument_costs(res,offset,wiki){
         case 'Statue':
             return res === 'Aluminium' ? costMultiplier('monument', offset, 350000, 1.1, wiki) : 0;
         case 'Sculpture':
-            return res === 'Steel' ? costMultiplier('monument', offset, 300000, 1.1, wiki) : 0;
+            return res === 'Aluminium' ? costMultiplier('monument', offset, 300000, 1.1, wiki) : 0; //garfu
         case 'Monolith':
             return res === 'Cement' ? costMultiplier('monument', offset, 300000, 1.1, wiki) : 0;
         case 'Pillar':

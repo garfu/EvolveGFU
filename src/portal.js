@@ -638,6 +638,8 @@ const fortressModules = {
                     let heart = global.portal.throne.hearts[0];
                     if (!global.race.absorbed.includes(heart)){
                         global.portal.throne.points++;
+                        global.portal.throne.points++;
+                        global.portal.throne.points++; //garfu
                     }
                     absorbRace(heart);
                     global.portal.throne.hearts.splice(0,1);
@@ -1338,9 +1340,9 @@ const fortressModules = {
             trait: ['warlord'],
             wiki: global.race['warlord'] ? true : false,
             cost: {
-                Money(offset){ return spaceCostMultiplier('tunneler', offset, 275000, 1.3, 'portal'); },
-                Food(offset){ return spaceCostMultiplier('tunneler', offset, 135000, 1.3, 'portal'); },
-                Uranium(offset){ return spaceCostMultiplier('tunneler', offset, 135, 1.3, 'portal'); },
+                Money(offset){ return spaceCostMultiplier('tunneler', offset, 275000, 1.15, 'portal'); },
+                Food(offset){ return spaceCostMultiplier('tunneler', offset, 135000, 1.15, 'portal'); },
+                Uranium(offset){ return spaceCostMultiplier('tunneler', offset, 135, 1.15, 'portal'); }, //garfuu
             },
             effect(wiki){
                 let boost = (global.portal?.tunneler?.rank || 1) + 3;
@@ -4445,6 +4447,7 @@ export function bloodwar(){
                             patrol_report.gem++;
                             day_report.stats.gems.patrols++;
                             global.resource.Soul_Gem.amount++;
+                            global.resource.Soul_Gem.amount++; //garfu
                             global.portal.fortress.pity = 0;
                             if (!global.resource.Soul_Gem.display){
                                 global.resource.Soul_Gem.display = true;
@@ -4656,6 +4659,7 @@ export function bloodwar(){
                             surv_report.gem++;
                             day_report.stats.gems.surveyors++;
                             global.resource.Soul_Gem.amount++;
+                            global.resource.Soul_Gem.amount++;
                             global.portal.fortress.pity = 0;
                             if (!global.resource.Soul_Gem.display){
                                 global.resource.Soul_Gem.display = true;
@@ -4728,6 +4732,7 @@ export function bloodwar(){
                     day_report.gun_emplacements[i+1].gem = true;
                     day_report.stats.gems.guns++;
                     global.resource.Soul_Gem.amount++;
+                    global.resource.Soul_Gem.amount++;
                 }
             }
         }
@@ -4747,6 +4752,7 @@ export function bloodwar(){
             if (Math.rand(0,forge_base) === 0){
                 day_report.soul_forge.gem = true;
                 day_report.stats.gems.soul_forge++;
+                global.resource.Soul_Gem.amount++;
                 global.resource.Soul_Gem.amount++;
             }
         }

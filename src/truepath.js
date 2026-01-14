@@ -4660,13 +4660,13 @@ export function shipSpeed(ship){
         case 'tie':
             return 40 / mass * boost;
         case 'pulse':
-            return 60 / mass * boost;
+            return 120 / mass * boost;
         case 'photon':
-            return 80 / mass * boost;
+            return 160 / mass * boost;
         case 'vacuum':
-            return 100 / mass * boost;
+            return 200/ mass * boost;
         case 'emdrive':
-            return 37500 / mass * boost;
+            return 375000 / mass * boost;
     }
 }
 

@@ -2007,7 +2007,7 @@ export const actions = {
                 };
             },
             soldiers(){
-                let soldiers = global.tech['military'] >= 5 ? 3 : 2;
+                let soldiers = global.tech['military'] >= 5 ? 5 : 4;
                 if (global.race['chameleon']){
                     soldiers--;
                 }

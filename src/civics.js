@@ -204,10 +204,19 @@ export const govEffect = {
     },
     theocracy(){
         let temple = 12;
-        let prof_malus = govActive('organizer',0) ? 10 : 25;
-        let sci_malus = global.tech['high_tech'] && global.tech['high_tech'] >= 12 ? ( global.tech['high_tech'] >= 16 ? 25 : 40 ) : 50;
+        let prof_malus = govActive('organizer',0) ? 0 : 0;
+        let sci_malus = global.tech['high_tech'] && global.tech['high_tech'] >= 12 ? ( global.tech['high_tech'] >= 16 ? 0 : 0 ) : 0;
         if (global.genes.hasOwnProperty('governor') && global.genes.governor >= 3){ temple += govActive('organizer',0) ? 2 : 1; }
-        return [temple, prof_malus, sci_malus];
+        let city = 3;
+        let morale = govActive('organizer',0) ? 12 : 10;
+        let unified = global.tech['high_tech'] && global.tech['high_tech'] >= 12 ? ( global.tech['high_tech'] >= 16 ? 40 : 36 ) : 32;
+        let crafting = global.tech['high_tech'] && global.tech['high_tech'] >= 12 ? ( global.tech['high_tech'] >= 16 ? 50 : 42 ) : 35;
+        let manufacture = govActive('organizer',0) ? 12 : 10;
+        if (global.genes.hasOwnProperty('governor') && global.genes.governor >= 3){
+            morale += govActive('organizer',0) ? 6 : 2;
+            unified += govActive('organizer',0) ? 4 : 2;
+        }
+        return [temple, prof_malus, sci_malus, city, morale, unified, crafting, manufacture]; //garfu
     },
     republic(){
         let bankers = govActive('organizer',0) ? 30 : 25;
@@ -216,6 +225,7 @@ export const govEffect = {
             morale += govActive('organizer',0) ? 10 : 5;
             bankers += govActive('organizer',0) ? 10 : 5;
         }
+        
         return [bankers, morale];
     },
     socialist(){
