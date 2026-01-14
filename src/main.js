@@ -1408,7 +1408,7 @@ function fastLoop(){
                 //Still and Not Hot
                 // -or-
                 //Windy and Hot
-                weather_morale = 2;
+                weather_morale = 0;//garfu
             }
         }
         else {
@@ -3577,7 +3577,7 @@ function fastLoop(){
                         }
 
                         breakdown.p['Food'][jobName('farmer')] = (food) + 'v';
-                        food_base += (food * virgo * weather_multiplier * mill_multiplier * q_multiplier * production('psychic_boost','Food'));
+                        food_base += (food * virgo * mill_multiplier * q_multiplier * production('psychic_boost','Food')); //garfu no weather multiplier
 
                         if (food > 0){
                             breakdown.p['Food'][`ᄂ${loc('city_mill_title1')}`] = ((mill_multiplier - 1) * 100) + '%';
@@ -10908,7 +10908,7 @@ function midLoop(){
                 if (global.genes['blood'] && global.genes['blood'] >= 2){
                     stones *= 2;
                 }
-                stones += Math.floor((global.portal.spire.count / 10))npm ;
+                stones += Math.floor((global.portal.spire.count / 10));
                 global.prestige.Blood_Stone.count += stones;
                 global.stats.blood += stones;
                 arpa('Blood');
